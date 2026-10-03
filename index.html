@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#08090d" />
+  <title>Formless</title>
+  <meta name="description" content="A clicker that becomes what you teach it to be." />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body data-form="formless">
+  <div class="ambient ambient-one"></div>
+  <div class="ambient ambient-two"></div>
+  <div class="grain"></div>
+
+  <main class="game-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">FORMLESS</p>
+        <h1 id="formName">The Formless</h1>
+      </div>
+      <button id="resetButton" class="text-button" type="button">Begin again</button>
+    </header>
+
+    <section class="game-stage" aria-label="Main game area">
+      <div class="resource-block">
+        <span id="energy" class="resource-value">0</span>
+        <span class="resource-label">energy</span>
+        <p id="rateText" class="rate-text">+1 per touch</p>
+      </div>
+
+      <div class="entity-wrap">
+        <div id="entityAura" class="entity-aura"></div>
+        <button id="entity" class="entity" type="button" aria-label="Touch the form">
+          <span class="entity-core"></span>
+          <span class="entity-ring ring-one"></span>
+          <span class="entity-ring ring-two"></span>
+        </button>
+        <div id="floatLayer" class="float-layer" aria-hidden="true"></div>
+      </div>
+
+      <div class="whisper-wrap">
+        <p id="whisper" class="whisper">It does not know what it is yet.</p>
+        <p id="evolutionStatus" class="evolution-status">Evolution: ???</p>
+      </div>
+    </section>
+
+    <aside class="panel" aria-label="Available changes">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">SHAPING</p>
+          <h2>What will you teach it?</h2>
+        </div>
+        <span id="discoveryCount" class="discovery-count">0 discovered</span>
+      </div>
+
+      <div id="upgrades" class="upgrade-list"></div>
+
+      <details class="codex">
+        <summary>
+          <span>Discovery Codex</span>
+          <span class="summary-mark">+</span>
+        </summary>
+        <div id="codexList" class="codex-list"></div>
+      </details>
+    </aside>
+
+    <footer>
+      <span>There are no classes to choose.</span>
+      <span>Your habits are the choice.</span>
+    </footer>
+  </main>
+
+  <div id="evolutionOverlay" class="evolution-overlay" hidden>
+    <div class="evolution-card">
+      <p class="eyebrow">SOMETHING HAS CHANGED</p>
+      <div id="evolutionGlyph" class="evolution-glyph">✦</div>
+      <h2 id="evolutionTitle">It remembers.</h2>
+      <p id="evolutionCopy"></p>
+      <button id="continueButton" class="primary-button" type="button">Continue</button>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
