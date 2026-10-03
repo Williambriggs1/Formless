@@ -501,7 +501,7 @@ function evolutionStatusText() {
 function render() {
   const evo = evolutions[state.form] || evolutions.formless;
   document.body.dataset.form = state.form;
-  document.body.dataset-family = evo.family;
+  document.body.dataset.family = evo.family;
 
   el.energy.textContent = fmt(state.energy);
   el.rateText.textContent =
