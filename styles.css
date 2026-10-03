@@ -7,7 +7,6 @@
 }
 
 * { box-sizing: border-box; }
-
 html, body { margin: 0; min-height: 100%; }
 
 body {
@@ -17,6 +16,7 @@ body {
     radial-gradient(circle at 50% 34%, rgba(255,255,255,.07), transparent 24rem),
     linear-gradient(180deg, #0d0f15 0%, #06070a 100%);
   color: #eeeae2;
+  transition: background 1.2s ease;
 }
 
 button { font: inherit; }
@@ -27,22 +27,18 @@ button { font: inherit; }
   filter: blur(90px);
   opacity: .12;
   pointer-events: none;
-  transition: background 1s ease, transform 1s ease;
+  transition: background 1s ease, transform 1s ease, opacity 1s ease;
 }
 
 .ambient-one {
-  width: 30rem;
-  height: 30rem;
-  top: -12rem;
-  right: -6rem;
+  width: 30rem; height: 30rem;
+  top: -12rem; right: -6rem;
   background: #7a7f8f;
 }
 
 .ambient-two {
-  width: 26rem;
-  height: 26rem;
-  left: -12rem;
-  bottom: -10rem;
+  width: 26rem; height: 26rem;
+  left: -12rem; bottom: -10rem;
   background: #50545e;
 }
 
@@ -63,8 +59,7 @@ button { font: inherit; }
   z-index: 1;
 }
 
-.topbar,
-footer {
+.topbar, footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -85,8 +80,7 @@ footer {
   color: #858995;
 }
 
-.text-button,
-.primary-button {
+.text-button, .primary-button {
   border: 0;
   color: inherit;
   cursor: pointer;
@@ -151,6 +145,7 @@ footer {
   background: rgba(255,255,255,.06);
   filter: blur(34px);
   animation: breathe 4s ease-in-out infinite;
+  transition: background .8s ease, width .8s ease, height .8s ease;
 }
 
 .entity {
@@ -185,6 +180,7 @@ footer {
   border: 1px solid rgba(255,255,255,.08);
   border-radius: 50%;
   animation: rotate 11s linear infinite;
+  transition: all .8s ease;
 }
 
 .ring-two {
@@ -287,6 +283,11 @@ footer {
   margin-bottom: 8px;
 }
 
+.upgrade-name small {
+  color: #5c626e;
+  font-weight: 400;
+}
+
 .upgrade-desc {
   color: #767b86;
   display: block;
@@ -318,9 +319,7 @@ footer {
 }
 
 .codex summary::-webkit-details-marker { display: none; }
-
 .codex[open] .summary-mark { transform: rotate(45deg); }
-
 .summary-mark { transition: transform .2s ease; }
 
 .codex-list {
@@ -331,16 +330,45 @@ footer {
 }
 
 .codex-entry {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
   border: 1px solid rgba(255,255,255,.05);
   border-radius: 12px;
-  padding: 12px;
-  color: #747985;
+  padding: 10px 12px;
+  color: #4d535e;
   font-size: .73rem;
 }
 
 .codex-entry.discovered {
   color: #c6c9d0;
   background: rgba(255,255,255,.018);
+}
+
+.codex-entry.tier-2 { border-style: dashed; }
+
+.codex-glyph {
+  width: 26px;
+  text-align: center;
+  font-size: 1rem;
+  color: #aeb3bd;
+}
+
+.codex-glyph.unknown { color: #3f444d; }
+
+.codex-entry strong {
+  display: block;
+  font-weight: 500;
+}
+
+.codex-entry small {
+  display: block;
+  margin-top: 3px;
+  color: #555b66;
+  font-size: .62rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
 }
 
 footer {
@@ -371,6 +399,7 @@ footer {
   background: #101218;
   border: 1px solid rgba(255,255,255,.09);
   box-shadow: 0 30px 100px rgba(0,0,0,.45);
+  animation: emerge .55s ease both;
 }
 
 .evolution-glyph {
@@ -399,34 +428,129 @@ footer {
   font-size: .78rem;
 }
 
-body[data-form="ember"] .ambient-one { background: #d05b2c; }
-body[data-form="ember"] .ambient-two { background: #6e1f19; }
-body[data-form="ember"] .entity-core {
+/* First-generation families */
+body[data-family="ember"] .ambient-one { background: #d05b2c; }
+body[data-family="ember"] .ambient-two { background: #6e1f19; }
+body[data-family="ember"] .entity-core {
   background: radial-gradient(circle at 42% 36%, #fff3c5, #ff9a42 27%, #c73f20 58%, #31120f 100%);
   box-shadow: 0 0 38px rgba(255,91,42,.32), inset -10px -12px 18px rgba(85,12,5,.45);
 }
 
-body[data-form="seed"] .ambient-one { background: #668b58; }
-body[data-form="seed"] .ambient-two { background: #263d2c; }
-body[data-form="seed"] .entity-core {
+body[data-family="seed"] .ambient-one { background: #668b58; }
+body[data-family="seed"] .ambient-two { background: #263d2c; }
+body[data-family="seed"] .entity-core {
   border-radius: 58% 42% 60% 40% / 46% 56% 44% 54%;
   background: radial-gradient(circle at 37% 30%, #d8deb6, #718152 38%, #34402b 70%, #161d15 100%);
   box-shadow: 0 0 38px rgba(125,164,89,.2), inset -10px -12px 18px rgba(0,0,0,.4);
 }
 
-body[data-form="mechanism"] .ambient-one { background: #597c97; }
-body[data-form="mechanism"] .ambient-two { background: #253746; }
-body[data-form="mechanism"] .entity-core {
+body[data-family="mechanism"] .ambient-one { background: #597c97; }
+body[data-family="mechanism"] .ambient-two { background: #253746; }
+body[data-family="mechanism"] .entity-core {
   border-radius: 22%;
   transform: rotate(45deg);
   background: radial-gradient(circle at 38% 32%, #e6f5ff, #6e93ad 32%, #344b5b 65%, #111820 100%);
   box-shadow: 0 0 36px rgba(89,161,205,.24), inset -10px -12px 18px rgba(0,0,0,.42);
 }
 
+/* Hybrid family */
+body[data-family="hybrid"] .ambient-one { background: #8a647d; }
+body[data-family="hybrid"] .ambient-two { background: #314963; }
+body[data-family="hybrid"] .entity-ring {
+  border-color: rgba(211,201,255,.15);
+}
+body[data-family="hybrid"] .entity-core {
+  box-shadow: 0 0 44px rgba(175,150,210,.25), inset -10px -12px 18px rgba(0,0,0,.4);
+}
+
+/* Rare balanced path */
+body[data-family="rare"] .ambient-one { background: #8b74b5; opacity: .18; }
+body[data-family="rare"] .ambient-two { background: #5b8d89; opacity: .18; }
+body[data-family="rare"] .entity-aura {
+  width: 215px;
+  height: 215px;
+  background: rgba(192,188,255,.1);
+}
+body[data-family="rare"] .entity-core {
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 32%, #ffffff, #c9c0ff 26%, #79a9a5 55%, #282539 100%);
+  box-shadow: 0 0 55px rgba(192,188,255,.32), inset -8px -10px 18px rgba(0,0,0,.33);
+}
+body[data-family="rare"] .entity-ring {
+  border-color: rgba(219,214,255,.18);
+}
+
+/* Individual second-generation mutations */
+body[data-form="inferno"] .entity-core {
+  inset: 22px;
+  filter: saturate(1.3);
+  animation: flare 1.8s ease-in-out infinite;
+}
+body[data-form="inferno"] .entity-ring { animation-duration: 5s; }
+
+body[data-form="core"] .entity-core {
+  inset: 34px;
+  background: radial-gradient(circle, #fff0ce 0%, #d96d3a 32%, #563049 64%, #16131a 100%);
+}
+body[data-form="core"] .entity-ring { inset: -1px; }
+
+body[data-form="furnace"] .entity-core {
+  border-radius: 18%;
+  background: radial-gradient(circle at center, #fff4cc, #ef6a32 31%, #463743 62%, #13151b 100%);
+}
+
+body[data-form="grove"] .entity-core {
+  inset: 21px 31px 35px 31px;
+  border-radius: 64% 36% 55% 45% / 58% 44% 56% 42%;
+}
+body[data-form="grove"] .ring-one { transform: scale(.86); }
+
+body[data-form="briar"] .entity-core {
+  border-radius: 38% 62% 35% 65% / 62% 31% 69% 38%;
+  filter: contrast(1.15);
+}
+
+body[data-form="cultivator"] .entity-core {
+  border-radius: 42%;
+}
+body[data-form="cultivator"] .entity-ring {
+  border-style: dashed;
+  animation-duration: 8s;
+}
+
+body[data-form="engine"] .entity-core {
+  inset: 22px;
+  border-radius: 16%;
+}
+body[data-form="engine"] .entity-ring { animation-duration: 4.5s; }
+
+body[data-form="press"] .entity-core {
+  inset: 24px 18px 24px 38px;
+  border-radius: 15%;
+  transform: rotate(45deg) skew(-7deg);
+}
+
+body[data-form="clockwork"] .entity-core {
+  inset: 31px;
+  border-radius: 28%;
+}
+body[data-form="clockwork"] .entity-ring {
+  border-style: dotted;
+  animation-timing-function: steps(12);
+}
+
 @keyframes rotate { to { transform: rotate(360deg); } }
 @keyframes breathe {
   0%, 100% { transform: scale(.9); opacity: .65; }
   50% { transform: scale(1.16); opacity: 1; }
+}
+@keyframes flare {
+  0%, 100% { transform: scale(.93); }
+  50% { transform: scale(1.08); }
+}
+@keyframes emerge {
+  from { opacity: 0; transform: translateY(8px) scale(.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 @keyframes floatAway {
   from { opacity: 1; transform: translate(-50%, 0) scale(.95); }
