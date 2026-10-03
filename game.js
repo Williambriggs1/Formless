@@ -1,5 +1,5 @@
-const SAVE_KEY = "formless-save-v2";
-const LEGACY_SAVE_KEY = "formless-save-v1";
+const SAVE_KEY = "formless-save-v3";
+const LEGACY_SAVE_KEYS = ["formless-save-v2", "formless-save-v1"];
 
 const evolutions = {
   formless: {
@@ -82,48 +82,69 @@ const upgradeDefs = [
   {
     id: "pressure",
     name: "Apply Pressure",
-    desc: "Your touch leaves a stronger impression.",
+    desc: "Strengthen active touches and build momentum while clicking.",
     baseCost: 24,
     max: 12,
-    trait: "force",
-    apply: state => { state.clickPower += 1; }
+    trait: "force"
   },
   {
     id: "reservoir",
     name: "Deepen the Reservoir",
-    desc: "Strengthen slow, passive growth without changing touch power.",
+    desc: "Grow stronger the longer you resist spending energy.",
     baseCost: 38,
     max: 12,
-    trait: "patience",
-    apply: state => {
-      state.reserveBonus += 0.05;
-      state.passive += 0.12;
-    }
+    trait: "patience"
   },
   {
     id: "pulse",
     name: "Teach a Pulse",
-    desc: "A faint autonomous rhythm produces energy.",
+    desc: "Build autonomous production that compounds with each level.",
     baseCost: 50,
     max: 12,
-    trait: "industry",
-    apply: state => { state.passive += 0.4; }
+    trait: "industry"
   }
 ];
+
+const shapingLanguage = {
+  origin: {
+    pressure: ["Apply Pressure", "Strengthen active touches and build momentum while clicking."],
+    reservoir: ["Deepen the Reservoir", "Grow stronger the longer you resist spending energy."],
+    pulse: ["Teach a Pulse", "Build autonomous production that compounds with each level."]
+  },
+  ember: {
+    pressure: ["Stoke", "Feed the heat. Rapid touches build stronger temporary momentum."],
+    reservoir: ["Contain", "Hold energy without spending it and compress the heat inward."],
+    pulse: ["Automate Combustion", "Teach the flame to keep burning when your hands stop."]
+  },
+  seed: {
+    pressure: ["Break Soil", "Push harder through resistance. Active growth answers force."],
+    reservoir: ["Deepen Roots", "The longer resources remain untouched, the deeper the roots reach."],
+    pulse: ["Establish Rhythm", "Let growth continue on its own in repeating cycles."]
+  },
+  mechanism: {
+    pressure: ["Increase Torque", "Active input builds rotational momentum."],
+    reservoir: ["Store Charge", "Unused energy accumulates efficiency over time."],
+    pulse: ["Add Process", "Each process strengthens the machine's autonomous output."]
+  },
+  convergence: {
+    pressure: ["Intensify", "Push one instinct without fully surrendering the others."],
+    reservoir: ["Center", "Stillness strengthens the balance."],
+    pulse: ["Synchronize", "Let every system contribute to the same rhythm."]
+  }
+};
 
 const freshState = () => ({
   energy: 0,
   lifetimeEnergy: 0,
-  clickPower: 1,
-  passive: 0,
-  reserveBonus: 0,
   clicks: 0,
   lastClickAt: 0,
   lastActiveAt: Date.now(),
+  lastSpendAt: Date.now(),
   startedAt: Date.now(),
   form: "formless",
   evolutionTier: 0,
   evolutionCount: 0,
+  heat: 0,
   traits: { force: 0, patience: 0, industry: 0 },
   stageTraits: { force: 0, patience: 0, industry: 0 },
   upgrades: { pressure: 0, reservoir: 0, pulse: 0 },
@@ -159,12 +180,24 @@ const el = {
   resetButton: document.querySelector("#resetButton")
 };
 
+function findSave() {
+  const current = localStorage.getItem(SAVE_KEY);
+  if (current) return current;
+
+  for (const key of LEGACY_SAVE_KEYS) {
+    const old = localStorage.getItem(key);
+    if (old) return old;
+  }
+
+  return null;
+}
+
 function load() {
   try {
-    const raw = localStorage.getItem(SAVE_KEY) || localStorage.getItem(LEGACY_SAVE_KEY);
-    const parsed = JSON.parse(raw);
-    if (!parsed) return freshState();
+    const raw = findSave();
+    if (!raw) return freshState();
 
+    const parsed = JSON.parse(raw);
     const base = freshState();
     const legacyTier = parsed.evolutionTier ?? (parsed.evolved ? 1 : 0);
 
@@ -173,6 +206,8 @@ function load() {
       ...parsed,
       evolutionTier: legacyTier,
       evolutionCount: parsed.evolutionCount ?? legacyTier,
+      heat: Number.isFinite(parsed.heat) ? parsed.heat : 0,
+      lastSpendAt: parsed.lastSpendAt || parsed.lastSavedAt || Date.now(),
       traits: { ...base.traits, ...(parsed.traits || {}) },
       stageTraits: { ...base.stageTraits, ...(parsed.stageTraits || {}) },
       upgrades: { ...base.upgrades, ...(parsed.upgrades || {}) },
@@ -189,12 +224,17 @@ function load() {
       60 * 60 * 8
     );
 
-    if (awaySeconds > 10 && merged.passive > 0) {
-      const gained = merged.passive * awaySeconds;
-      merged.energy += gained;
-      merged.lifetimeEnergy += gained;
-      addTrait("patience", Math.min(awaySeconds / 180, 20), merged);
-      addTrait("industry", Math.min((awaySeconds / 300) * merged.passive, 14), merged);
+    merged.heat = Math.max(0, merged.heat - awaySeconds * heatDecayRate(merged));
+
+    if (awaySeconds > 10) {
+      const rate = passiveGainFor(merged, Date.now());
+      if (rate > 0) {
+        const gained = rate * awaySeconds;
+        merged.energy += gained;
+        merged.lifetimeEnergy += gained;
+        addTrait("patience", Math.min(awaySeconds / 180, 20), merged);
+        addTrait("industry", Math.min((awaySeconds / 300) * rate, 14), merged);
+      }
     }
 
     return merged;
@@ -210,12 +250,14 @@ function save() {
 
 function fmt(n) {
   if (n < 1000) return Math.floor(n).toLocaleString();
+
   const units = [["K", 1e3], ["M", 1e6], ["B", 1e9], ["T", 1e12], ["Qa", 1e15]];
   for (let i = units.length - 1; i >= 0; i--) {
     if (n >= units[i][1]) {
       return (n / units[i][1]).toFixed(n >= units[i][1] * 100 ? 0 : 1) + units[i][0];
     }
   }
+
   return Math.floor(n).toLocaleString();
 }
 
@@ -224,24 +266,155 @@ function addTrait(trait, amount, target = state) {
   if (target.evolutionTier === 1) target.stageTraits[trait] += amount;
 }
 
-function clickGain() {
-  const formBonus = {
-    ember: 1.15, inferno: 1.65, core: 1.4, furnace: 1.35,
-    briar: 1.25, press: 1.55, convergence: 1.35
-  }[state.form] || 1;
+function upgradeLevel(id, target = state) {
+  return Math.max(0, Number(target.upgrades[id] || 0));
+}
 
-  return state.clickPower * formBonus;
+function pressureBase(target = state) {
+  const level = upgradeLevel("pressure", target);
+  return 1 + level * 0.75;
+}
+
+function pulseBase(target = state) {
+  const level = upgradeLevel("pulse", target);
+  if (level <= 0) return 0;
+  return 0.45 * Math.pow(level, 1.55);
+}
+
+function reservoirBase(target = state) {
+  return upgradeLevel("reservoir", target) * 0.08;
+}
+
+function formGroup(form = state.form) {
+  if (["ember", "inferno", "core", "furnace"].includes(form)) return "ember";
+  if (["seed", "grove", "briar", "cultivator"].includes(form)) return "seed";
+  if (["mechanism", "engine", "press", "clockwork"].includes(form)) return "mechanism";
+  if (form === "convergence") return "convergence";
+  return "origin";
+}
+
+function heatDecayRate(target = state) {
+  if (target.form === "inferno") return 8;
+  if (target.form === "briar" || target.form === "press") return 10;
+  return 14;
+}
+
+function heatBuildAmount(gap, target = state) {
+  const level = upgradeLevel("pressure", target);
+  if (level <= 0) return 0;
+
+  let amount = 2.5 + level * 0.45;
+  if (gap < 450) amount *= 1.45;
+  if (target.form === "inferno") amount *= 1.4;
+  if (target.form === "press") amount *= 1.25;
+
+  return amount;
+}
+
+function heatMultiplier(target = state) {
+  const level = upgradeLevel("pressure", target);
+  if (level <= 0) return 1;
+
+  let ceiling = 0.25 + level * 0.018;
+  if (target.form === "inferno") ceiling += 0.18;
+  if (target.form === "press") ceiling += 0.12;
+  if (target.form === "briar") ceiling += 0.06;
+
+  return 1 + (Math.min(100, target.heat) / 100) * ceiling;
+}
+
+function reservoirCharge(target = state, now = Date.now()) {
+  const level = upgradeLevel("reservoir", target);
+  if (level <= 0) return 0;
+
+  let secondsToFull = 300;
+  if (target.form === "core") secondsToFull = 210;
+  if (target.form === "grove") secondsToFull = 180;
+  if (target.form === "clockwork") secondsToFull = 240;
+
+  const elapsed = Math.max(0, (now - (target.lastSpendAt || now)) / 1000);
+  return Math.min(1, elapsed / secondsToFull);
+}
+
+function reservoirMultiplier(target = state, now = Date.now()) {
+  const level = upgradeLevel("reservoir", target);
+  if (level <= 0) return 1;
+
+  const charge = reservoirCharge(target, now);
+  let permanent = level * 0.025;
+  let charged = charge * (0.22 + level * 0.045);
+
+  if (target.form === "core") charged *= 1.25;
+  if (target.form === "grove") charged *= 1.35;
+  if (target.form === "clockwork") permanent += 0.08;
+
+  return 1 + permanent + charged;
+}
+
+function formClickMultiplier(target = state) {
+  return {
+    ember: 1.05,
+    inferno: 1.12,
+    core: 1.03,
+    furnace: 1.03,
+    briar: 1.08,
+    press: 1.12,
+    convergence: 1.06
+  }[target.form] || 1;
+}
+
+function formPassiveMultiplier(target = state) {
+  return {
+    seed: 1.12,
+    grove: 1.28,
+    cultivator: 1.22,
+    mechanism: 1.15,
+    engine: 1.5,
+    clockwork: 1.28,
+    furnace: 1.22,
+    convergence: 1.16
+  }[target.form] || 1;
+}
+
+function clickGainFor(target = state) {
+  return pressureBase(target) * heatMultiplier(target) * formClickMultiplier(target);
+}
+
+function clickGain() {
+  return clickGainFor(state);
+}
+
+function passiveGainFor(target = state, now = Date.now()) {
+  let base = pulseBase(target) + reservoirBase(target);
+  if (base <= 0) return 0;
+
+  let result = base * reservoirMultiplier(target, now) * formPassiveMultiplier(target);
+
+  if (target.form === "furnace") {
+    result *= 1 + (Math.min(100, target.heat) / 100) * 0.55;
+  }
+
+  if (target.form === "cultivator") {
+    const p = upgradeLevel("pulse", target);
+    const r = upgradeLevel("reservoir", target);
+    result *= 1 + Math.min(p, r) * 0.025;
+  }
+
+  if (target.form === "convergence") {
+    const levels = [
+      upgradeLevel("pressure", target),
+      upgradeLevel("reservoir", target),
+      upgradeLevel("pulse", target)
+    ];
+    const spread = Math.max(...levels) - Math.min(...levels);
+    if (spread <= 2) result *= 1.18;
+  }
+
+  return result;
 }
 
 function passiveGain() {
-  const formMultiplier = {
-    seed: 1.15, grove: 1.8, cultivator: 1.55,
-    mechanism: 1.2, engine: 2.1, clockwork: 1.65,
-    furnace: 1.55, convergence: 1.35
-  }[state.form] || 1;
-
-  const patienceMultiplier = 1 + state.reserveBonus;
-  return state.passive * formMultiplier * patienceMultiplier;
+  return passiveGainFor(state, Date.now());
 }
 
 function onEntityClick(event) {
@@ -253,8 +426,9 @@ function onEntityClick(event) {
   state.lifetimeEnergy += gain;
   state.clicks += 1;
   state.lastActiveAt = now;
+  state.heat = Math.min(100, state.heat + heatBuildAmount(gap));
 
-  if (gap < 400) addTrait("force", 0.3);
+  if (gap < 450) addTrait("force", 0.3);
   else if (gap > 1900) addTrait("patience", 0.1);
   else addTrait("force", 0.07);
 
@@ -267,7 +441,7 @@ function onEntityClick(event) {
 function spawnFloat(event, gain) {
   const node = document.createElement("span");
   node.className = "float-number";
-  node.textContent = "+" + Math.max(1, Math.round(gain));
+  node.textContent = "+" + Math.max(1, Number(gain.toFixed(1)));
   node.style.setProperty("--drift", (Math.random() * 38 - 19) + "px");
 
   const rect = el.floatLayer.getBoundingClientRect();
@@ -278,15 +452,15 @@ function spawnFloat(event, gain) {
 }
 
 function upgradeCost(def) {
-  const level = state.upgrades[def.id] || 0;
-  return Math.floor(def.baseCost * Math.pow(1.66, level));
+  const level = upgradeLevel(def.id);
+  return Math.floor(def.baseCost * Math.pow(1.62, level));
 }
 
 function buyUpgrade(id) {
   const def = upgradeDefs.find(x => x.id === id);
   if (!def) return;
 
-  const level = state.upgrades[id] || 0;
+  const level = upgradeLevel(id);
   const cost = upgradeCost(def);
 
   if (level >= def.max) return;
@@ -301,9 +475,9 @@ function buyUpgrade(id) {
 
   state.energy -= cost;
   state.upgrades[id] = level + 1;
-  addTrait(def.trait, 4 + level * 0.45);
-  def.apply(state);
+  state.lastSpendAt = Date.now();
 
+  addTrait(def.trait, 4 + level * 0.45);
   if (def.trait === "industry") addTrait("industry", 1.6);
 
   lastUpgradeRenderKey = "";
@@ -331,7 +505,7 @@ function considerFirstEvolution() {
   const scores = [
     ["ember", state.traits.force],
     ["seed", state.traits.patience + Math.min(state.energy / 60, 7)],
-    ["mechanism", state.traits.industry + state.upgrades.pulse * 2.4]
+    ["mechanism", state.traits.industry + upgradeLevel("pulse") * 2.4]
   ].sort((a, b) => b[1] - a[1]);
 
   if (scores[0][1] < 8) return;
@@ -342,8 +516,7 @@ function considerSecondEvolution() {
   const gainedSinceFirst = state.lifetimeEnergy - state.firstEvolutionEnergy;
   if (gainedSinceFirst < 950) return;
 
-  const s = state.stageTraits;
-  const ranked = traitScores(s);
+  const ranked = traitScores(state.stageTraits);
   const highest = ranked[0][1];
   const lowest = ranked[2][1];
   const spread = highest - lowest;
@@ -356,7 +529,6 @@ function considerSecondEvolution() {
     next = "convergence";
   } else {
     const primary = ranked[0][0];
-
     const branches = {
       ember: { force: "inferno", patience: "core", industry: "furnace" },
       seed: { force: "briar", patience: "grove", industry: "cultivator" },
@@ -367,34 +539,6 @@ function considerSecondEvolution() {
   }
 
   if (next) evolve(next, 2);
-}
-
-function applyEvolutionBonus(form) {
-  const effects = {
-    ember: () => { state.clickPower += 2; },
-    seed: () => { state.passive += 0.75; },
-    mechanism: () => { state.passive += 1.5; },
-
-    inferno: () => { state.clickPower += 5; },
-    core: () => { state.clickPower += 3; state.reserveBonus += 0.12; },
-    furnace: () => { state.clickPower += 2; state.passive += 2.2; },
-
-    grove: () => { state.passive += 3; },
-    briar: () => { state.clickPower += 4; state.passive += 0.7; },
-    cultivator: () => { state.passive += 3.8; },
-
-    engine: () => { state.passive += 5; },
-    press: () => { state.clickPower += 5; state.passive += 1; },
-    clockwork: () => { state.passive += 3; state.reserveBonus += 0.14; },
-
-    convergence: () => {
-      state.clickPower += 3;
-      state.passive += 3;
-      state.reserveBonus += 0.1;
-    }
-  };
-
-  effects[form]?.();
 }
 
 function evolve(form, tier) {
@@ -408,7 +552,8 @@ function evolve(form, tier) {
   }
 
   if (!state.discovered.includes(form)) state.discovered.push(form);
-  applyEvolutionBonus(form);
+
+  lastUpgradeRenderKey = "";
 
   const evo = evolutions[form];
   el.evoGlyph.textContent = evo.glyph;
@@ -420,12 +565,18 @@ function evolve(form, tier) {
   render();
 }
 
+function shapingFor(def) {
+  const group = formGroup();
+  return shapingLanguage[group]?.[def.id] || [def.name, def.desc];
+}
+
 function renderUpgrades() {
+  const group = formGroup();
   const key = upgradeDefs.map(def => {
-    const level = state.upgrades[def.id] || 0;
+    const level = upgradeLevel(def.id);
     const cost = upgradeCost(def);
     const affordable = state.energy >= cost ? 1 : 0;
-    return def.id + ":" + level + ":" + affordable;
+    return def.id + ":" + level + ":" + affordable + ":" + group;
   }).join("|");
 
   if (key === lastUpgradeRenderKey) return;
@@ -433,16 +584,20 @@ function renderUpgrades() {
   el.upgrades.innerHTML = "";
 
   upgradeDefs.forEach(def => {
-    const level = state.upgrades[def.id] || 0;
+    const level = upgradeLevel(def.id);
     const cost = upgradeCost(def);
     const affordable = state.energy >= cost;
     const button = document.createElement("button");
+    const language = shapingFor(def);
 
-    button.className = "upgrade" + (!affordable && level < def.max ? " locked" : "") + (level >= def.max ? " maxed" : "");
+    button.className = "upgrade" +
+      (!affordable && level < def.max ? " locked" : "") +
+      (level >= def.max ? " maxed" : "");
+
     button.disabled = level >= def.max;
     button.innerHTML = `
-      <span class="upgrade-name">${def.name} <small>· ${level}/${def.max}</small></span>
-      <span class="upgrade-desc">${def.desc}</span>
+      <span class="upgrade-name">${language[0]} <small>· ${level}/${def.max}</small></span>
+      <span class="upgrade-desc">${language[1]}</span>
       <span class="upgrade-cost">${level >= def.max ? "Complete" : fmt(cost) + " energy"}</span>
     `;
 
@@ -465,6 +620,7 @@ function codexOrder() {
 function renderCodex() {
   const renderKey = state.discovered.slice().sort().join("|");
   if (renderKey === lastCodexRenderKey) return;
+
   lastCodexRenderKey = renderKey;
   el.codexList.innerHTML = "";
 
@@ -472,6 +628,7 @@ function renderCodex() {
     const evo = evolutions[key];
     const known = state.discovered.includes(key);
     const entry = document.createElement("div");
+
     entry.className = "codex-entry tier-" + evo.tier + (known ? " discovered" : "");
 
     if (known) {
@@ -501,15 +658,31 @@ function evolutionStatusText() {
   return "Evolution II · " + evolutions[state.form].name;
 }
 
+function mechanicStatusText() {
+  const parts = [];
+  const p = upgradeLevel("pressure");
+  const r = upgradeLevel("reservoir");
+
+  if (p > 0) parts.push("heat " + Math.round(state.heat) + "%");
+  if (r > 0) parts.push("reserve ×" + reservoirMultiplier().toFixed(2));
+
+  return parts.length ? "  ·  " + parts.join("  ·  ") : "";
+}
+
 function render() {
   const evo = evolutions[state.form] || evolutions.formless;
+
   document.body.dataset.form = state.form;
   document.body.dataset.family = evo.family;
 
   el.energy.textContent = fmt(state.energy);
+
+  const touch = Number(clickGain().toFixed(1));
+  const passive = passiveGain();
   el.rateText.textContent =
-    "+" + Number(clickGain().toFixed(1)) + " per touch" +
-    (passiveGain() > 0 ? "  ·  +" + passiveGain().toFixed(1) + "/sec" : "");
+    "+" + touch + " per touch" +
+    (passive > 0 ? "  ·  +" + passive.toFixed(1) + "/sec" : "") +
+    mechanicStatusText();
 
   el.formName.textContent = evo.name;
   el.whisper.textContent = Date.now() < transientWhisperUntil ? transientWhisper : evo.whisper;
@@ -523,12 +696,14 @@ function tick(now) {
   const dt = Math.min((now - lastTick) / 1000, 1);
   lastTick = now;
 
+  state.heat = Math.max(0, state.heat - heatDecayRate() * dt);
+
   const perSecond = passiveGain();
   if (perSecond > 0) {
     const generated = perSecond * dt;
     state.energy += generated;
     state.lifetimeEnergy += generated;
-    addTrait("industry", dt * 0.011 * Math.max(perSecond, 1));
+    addTrait("industry", dt * 0.008 * Math.max(perSecond, 1));
   }
 
   if (Date.now() - state.lastActiveAt > 12000) {
@@ -556,13 +731,15 @@ el.resetButton.addEventListener("click", () => {
   if (!confirm("Erase this form and begin again? Your discoveries in this browser will also reset.")) return;
 
   localStorage.removeItem(SAVE_KEY);
-  localStorage.removeItem(LEGACY_SAVE_KEY);
+  LEGACY_SAVE_KEYS.forEach(key => localStorage.removeItem(key));
+
   state = freshState();
   lastUpgradeRenderKey = "";
   lastCodexRenderKey = "";
   transientWhisper = "";
   transientWhisperUntil = 0;
   el.overlay.hidden = true;
+
   render();
   save();
 });
