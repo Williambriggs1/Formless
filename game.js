@@ -132,6 +132,10 @@ const freshState = () => ({
 let state = load();
 let lastTick = performance.now();
 let autosaveTimer = 0;
+let lastUpgradeRenderKey = "";
+let lastCodexRenderKey = "";
+let transientWhisper = "";
+let transientWhisperUntil = 0;
 
 const el = {
   energy: document.querySelector("#energy"),
@@ -281,7 +285,16 @@ function buyUpgrade(id) {
 
   const level = state.upgrades[id] || 0;
   const cost = upgradeCost(def);
-  if (level >= def.max || state.energy < cost) return;
+
+  if (level >= def.max) return;
+
+  if (state.energy < cost) {
+    const missing = Math.max(1, Math.ceil(cost - state.energy));
+    transientWhisper = "It needs " + fmt(missing) + " more energy before it can learn that.";
+    transientWhisperUntil = Date.now() + 1800;
+    render();
+    return;
+  }
 
   state.energy -= cost;
   state.upgrades[id] = level + 1;
@@ -290,6 +303,7 @@ function buyUpgrade(id) {
 
   if (def.trait === "industry") addTrait("industry", 1.6);
 
+  lastUpgradeRenderKey = "";
   considerEvolution();
   render();
   save();
@@ -404,19 +418,31 @@ function evolve(form, tier) {
 }
 
 function renderUpgrades() {
+  const key = upgradeDefs.map(def => {
+    const level = state.upgrades[def.id] || 0;
+    const cost = upgradeCost(def);
+    const affordable = state.energy >= cost ? 1 : 0;
+    return def.id + ":" + level + ":" + affordable;
+  }).join("|");
+
+  if (key === lastUpgradeRenderKey) return;
+  lastUpgradeRenderKey = key;
   el.upgrades.innerHTML = "";
 
   upgradeDefs.forEach(def => {
     const level = state.upgrades[def.id] || 0;
     const cost = upgradeCost(def);
+    const affordable = state.energy >= cost;
     const button = document.createElement("button");
-    button.className = "upgrade";
-    button.disabled = state.energy < cost || level >= def.max;
+
+    button.className = "upgrade" + (!affordable && level < def.max ? " locked" : "") + (level >= def.max ? " maxed" : "");
+    button.disabled = level >= def.max;
     button.innerHTML = `
       <span class="upgrade-name">${def.name} <small>· ${level}/${def.max}</small></span>
       <span class="upgrade-desc">${def.desc}</span>
       <span class="upgrade-cost">${level >= def.max ? "Complete" : fmt(cost) + " energy"}</span>
     `;
+
     button.addEventListener("click", () => buyUpgrade(def.id));
     el.upgrades.appendChild(button);
   });
@@ -434,6 +460,9 @@ function codexOrder() {
 }
 
 function renderCodex() {
+  const renderKey = state.discovered.slice().sort().join("|");
+  if (renderKey === lastCodexRenderKey) return;
+  lastCodexRenderKey = renderKey;
   el.codexList.innerHTML = "";
 
   codexOrder().forEach(key => {
@@ -480,7 +509,7 @@ function render() {
     (passiveGain() > 0 ? "  ·  +" + passiveGain().toFixed(1) + "/sec" : "");
 
   el.formName.textContent = evo.name;
-  el.whisper.textContent = evo.whisper;
+  el.whisper.textContent = Date.now() < transientWhisperUntil ? transientWhisper : evo.whisper;
   el.evolutionStatus.textContent = evolutionStatusText();
 
   renderUpgrades();
@@ -526,6 +555,10 @@ el.resetButton.addEventListener("click", () => {
   localStorage.removeItem(SAVE_KEY);
   localStorage.removeItem(LEGACY_SAVE_KEY);
   state = freshState();
+  lastUpgradeRenderKey = "";
+  lastCodexRenderKey = "";
+  transientWhisper = "";
+  transientWhisperUntil = 0;
   el.overlay.hidden = true;
   render();
   save();
