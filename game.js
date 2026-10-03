@@ -91,11 +91,14 @@ const upgradeDefs = [
   {
     id: "reservoir",
     name: "Deepen the Reservoir",
-    desc: "Reward the instinct to keep energy unspent.",
+    desc: "Strengthen slow, passive growth without changing touch power.",
     baseCost: 38,
     max: 12,
     trait: "patience",
-    apply: state => { state.reserveBonus += 0.05; }
+    apply: state => {
+      state.reserveBonus += 0.05;
+      state.passive += 0.12;
+    }
   },
   {
     id: "pulse",
@@ -222,23 +225,23 @@ function addTrait(trait, amount, target = state) {
 }
 
 function clickGain() {
-  const heldEnergy = Math.min(state.energy / 200, 3);
   const formBonus = {
     ember: 1.15, inferno: 1.65, core: 1.4, furnace: 1.35,
     briar: 1.25, press: 1.55, convergence: 1.35
   }[state.form] || 1;
 
-  return state.clickPower * (1 + state.reserveBonus * heldEnergy) * formBonus;
+  return state.clickPower * formBonus;
 }
 
 function passiveGain() {
-  const multiplier = {
+  const formMultiplier = {
     seed: 1.15, grove: 1.8, cultivator: 1.55,
     mechanism: 1.2, engine: 2.1, clockwork: 1.65,
     furnace: 1.55, convergence: 1.35
   }[state.form] || 1;
 
-  return state.passive * multiplier;
+  const patienceMultiplier = 1 + state.reserveBonus;
+  return state.passive * formMultiplier * patienceMultiplier;
 }
 
 function onEntityClick(event) {
