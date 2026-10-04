@@ -221,7 +221,9 @@ const behaviorRuntimeDefaults = () => ({
   purchases: 0,
   manualEnergy: 0,
   passiveEnergy: 0,
-  burstEpisodes: 0
+  burstEpisodes: 0,
+  forceWarningShown: false,
+  repeatWarningShown: false
 });
 
 const historyDefaults = () => ({
@@ -561,8 +563,106 @@ function showBehaviorHint(key, text, duration = 3000) {
   save();
 }
 
+function previousFirstFormCount(form) {
+  return (state.history.releases || []).filter(run => run.firstForm === form).length;
+}
+
+function previousFinalFormCount(form) {
+  return (state.history.releases || []).filter(run => run.finalForm === form).length;
+}
+
+function setGuidanceHint(text, flag, duration = 4200) {
+  if (state.behaviorRuntime[flag]) return false;
+
+  state.behaviorRuntime[flag] = true;
+  transientWhisper = text;
+  transientWhisperUntil = Date.now() + duration;
+  save();
+  return true;
+}
+
+function maybePathGuidance() {
+  if (!state.shapingStartedAt) return false;
+
+  if (state.evolutionTier === 0) {
+    const scores = firstEvolutionScores();
+    const leader = scores[0];
+    const lead = leader[1] - scores[1][1];
+
+    if (leader[0] === "ember" && lead >= 4.5) {
+      const repeated = previousFirstFormCount("ember");
+      const forceHeavy =
+        upgradeLevel("pressure") >= 3 ||
+        state.shapingTraits.force >= 10 ||
+        state.heat >= 65;
+
+      if (forceHeavy && (repeated >= 1 || lead >= 7)) {
+        return setGuidanceHint(
+          repeated >= 1
+            ? "It remembers this pressure. If you want something different, stop pushing for a while."
+            : "You are teaching it almost nothing but force. Slowing down may reveal another instinct.",
+          "forceWarningShown"
+        );
+      }
+    }
+
+    if (
+      previousFirstFormCount(leader[0]) >= 2 &&
+      lead >= 2.5
+    ) {
+      return setGuidanceHint(
+        "This lesson feels familiar to it. A different habit may lead somewhere new.",
+        "repeatWarningShown"
+      );
+    }
+
+    return false;
+  }
+
+  if (state.evolutionTier === 1) {
+    const scores = secondEvolutionScores();
+    const ranked = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+    const lead = ranked[0][1] - ranked[1][1];
+    const normal = normalSecondEvolutionCandidate();
+
+    const forceForms = new Set(["inferno", "briar", "press"]);
+
+    if (normal && forceForms.has(normal) && lead >= 6) {
+      const repeated = previousFinalFormCount(normal);
+      const forceHeavy =
+        upgradeDeltaSinceFirst("pressure") >= 3 ||
+        state.stageTraits.force >= 24 ||
+        state.heat >= 70;
+
+      if (forceHeavy && (repeated >= 1 || lead >= 10)) {
+        return setGuidanceHint(
+          repeated >= 1
+            ? "It knows where this pressure leads. Ease off if you want it to become something else."
+            : "Force is drowning out the other lessons. Give the form room to settle.",
+          "forceWarningShown"
+        );
+      }
+    }
+
+    if (
+      normal &&
+      previousFinalFormCount(normal) >= 2 &&
+      lead >= 3
+    ) {
+      return setGuidanceHint(
+        "This path is becoming familiar. Change how you teach it if you want a different ending.",
+        "repeatWarningShown"
+      );
+    }
+  }
+
+  return false;
+}
+
 function maybeBehaviorHints() {
   if (!state.shapingStartedAt) return;
+
+  if (maybePathGuidance()) return;
 
   const b = state.behaviors;
 
