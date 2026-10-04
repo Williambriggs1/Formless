@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#08090d" />
   <title>Formless</title>
   <meta name="description" content="A clicker that becomes what you teach it to be." />
-  <link rel="stylesheet" href="styles.css?v=0.4.0" />
+  <link rel="stylesheet" href="styles.css?v=0.4.1" />
 </head>
 <body data-form="formless">
   <div class="ambient ambient-one"></div>
@@ -19,7 +19,10 @@
         <p class="eyebrow">FORMLESS</p>
         <h1 id="formName">The Formless</h1>
       </div>
-      <button id="resetButton" class="text-button" type="button">Begin again</button>
+      <div class="top-actions">
+        <button id="soundButton" class="text-button" type="button" aria-pressed="false">Sound off</button>
+        <button id="resetButton" class="text-button" type="button">Release form</button>
+      </div>
     </header>
 
     <section class="game-stage" aria-label="Main game area">
@@ -27,11 +30,15 @@
         <span id="energy" class="resource-value">0</span>
         <span class="resource-label">energy</span>
         <p id="rateText" class="rate-text">+1 per touch</p>
+        <p id="mechanicText" class="mechanic-text" aria-live="polite"></p>
       </div>
 
       <div class="entity-wrap">
         <div id="entityAura" class="entity-aura"></div>
         <button id="entity" class="entity" type="button" aria-label="Touch the form">
+          <span class="entity-field field-heat"></span>
+          <span class="entity-field field-reserve"></span>
+          <span class="entity-field field-pulse"></span>
           <span class="entity-shell"></span>
           <span class="entity-core"></span>
           <span class="entity-markings"></span>
@@ -96,6 +103,6 @@
     </div>
   </div>
 
-  <script src="game.js?v=0.4.0"></script>
+  <script src="game.js?v=0.4.1"></script>
 </body>
 </html>
