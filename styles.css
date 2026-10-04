@@ -1868,3 +1868,257 @@ body[data-drawer="codex"] .drawer-toggle-right {
       linear-gradient(145deg, rgba(255,255,255,.014), rgba(255,255,255,.006));
   }
 }
+
+
+/* v0.5 secret-form visual language */
+body[data-family="secret"] .ambient-one {
+  background: #75659a;
+  opacity: .16;
+}
+
+body[data-family="secret"] .ambient-two {
+  background: #4c7b7f;
+  opacity: .14;
+}
+
+body[data-family="secret"] .entity-aura {
+  width: 205px;
+  height: 205px;
+  background: rgba(159,151,214,.09);
+}
+
+body[data-family="secret"] .entity-core {
+  background:
+    radial-gradient(circle at 38% 32%, #f5f3ff, #9f98c8 24%, #597b80 54%, #22212e 100%);
+  box-shadow:
+    0 0 48px rgba(157,145,213,.22),
+    inset -9px -11px 18px rgba(0,0,0,.38);
+}
+
+body[data-family="secret"] .entity-shell {
+  border-color: rgba(196,189,235,.16);
+  box-shadow:
+    0 0 28px rgba(132,122,178,.06),
+    inset 0 0 18px rgba(120,164,166,.05);
+}
+
+body[data-family="secret"] .entity-ring {
+  border-color: rgba(199,193,236,.12);
+}
+
+body[data-family="secret"] .entity-fragments i {
+  opacity: .5;
+  background: linear-gradient(145deg, #b8afd8, #56777f);
+  box-shadow: 0 0 10px rgba(150,139,200,.18);
+}
+
+body[data-family="secret"] .entity-node {
+  opacity: .62;
+  background: #cbc5eb;
+  box-shadow: 0 0 11px rgba(177,166,225,.28);
+}
+
+/* Stored potential */
+body[data-form="vault"] .entity-core {
+  inset: 31px;
+  border-radius: 24%;
+  transform: rotate(45deg);
+}
+
+body[data-form="vault"] .entity-shell {
+  inset: 15px;
+  border-radius: 22%;
+  transform: rotate(45deg);
+}
+
+body[data-form="vault"] .entity-fragments i {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  opacity: .28;
+}
+
+/* Violent impulse */
+body[data-form="flashpoint"] .entity-shell {
+  inset: 9px 14px 12px 7px;
+  border-radius: 67% 33% 71% 29% / 31% 70% 30% 69%;
+  animation: infernoWarp 1.35s ease-in-out infinite;
+}
+
+body[data-form="flashpoint"] .entity-fragments {
+  animation-duration: 3.2s;
+}
+
+body[data-form="flashpoint"] .entity-fragments i {
+  width: 6px;
+  height: 28px;
+  opacity: .9;
+}
+
+/* Repeated rhythm */
+body[data-form="resonance"] .entity-core {
+  inset: 33px;
+  border-radius: 50%;
+}
+
+body[data-form="resonance"] .entity-shell {
+  inset: 17px;
+  border-radius: 50%;
+}
+
+body[data-form="resonance"] .entity-ring,
+body[data-form="resonance"] .entity-fragments {
+  animation-duration: 8s;
+}
+
+body[data-form="resonance"] .ring-two {
+  animation-direction: normal;
+  animation-duration: 12s;
+}
+
+/* Autonomous process */
+body[data-form="autarch"] .entity-core {
+  inset: 24px;
+  border-radius: 16%;
+}
+
+body[data-form="autarch"] .entity-shell {
+  inset: 11px;
+  border-radius: 14%;
+}
+
+body[data-form="autarch"] .entity-fragments,
+body[data-form="autarch"] .ring-three {
+  animation-duration: 4.2s;
+}
+
+/* Reliant on direct touch */
+body[data-form="handbound"] .entity-core {
+  inset: 19px;
+  border-radius: 44% 56% 46% 54%;
+}
+
+body[data-form="handbound"] .entity-shell {
+  inset: 28px 14px;
+  border-radius: 50%;
+}
+
+body[data-form="handbound"] .entity-fragments i {
+  opacity: .15;
+}
+
+/* Defined by omission */
+body[data-form="hollow"] .entity-core {
+  inset: 27px;
+  background:
+    radial-gradient(circle, transparent 0 27%, rgba(157,151,198,.42) 31%, #4b6268 58%, #1a1b24 100%);
+  box-shadow:
+    0 0 42px rgba(145,137,190,.18),
+    inset 0 0 24px rgba(0,0,0,.62);
+}
+
+body[data-form="hollow"] .entity-shell {
+  inset: 14px;
+  border-radius: 50%;
+}
+
+body[data-form="hollow"] .entity-markings {
+  opacity: .08;
+}
+
+/* Time left behind */
+body[data-form="afterimage"] .entity-core {
+  filter: blur(.35px);
+  opacity: .8;
+}
+
+body[data-form="afterimage"] .entity-shell {
+  inset: 14px 25px 19px 10px;
+  border-radius: 63% 37% 57% 43%;
+  animation: convergenceFloat 4.5s ease-in-out infinite;
+}
+
+body[data-form="afterimage"] .fragments-b {
+  opacity: .36;
+  filter: blur(2px);
+}
+
+/* Fill and empty */
+body[data-form="undertow"] .entity-core {
+  inset: 28px 18px;
+  border-radius: 50%;
+}
+
+body[data-form="undertow"] .entity-shell {
+  inset: 17px 7px;
+  border-radius: 50%;
+  transform: rotate(-18deg);
+}
+
+body[data-form="undertow"] .ring-one {
+  inset: 9px -9px;
+}
+
+/* Extreme specialization */
+body[data-form="monolith"] .entity-core {
+  inset: 17px 38px;
+  border-radius: 9px;
+}
+
+body[data-form="monolith"] .entity-shell {
+  inset: 7px 30px;
+  border-radius: 12px;
+}
+
+body[data-form="monolith"] .entity-fragments i {
+  border-radius: 1px;
+  opacity: .2;
+}
+
+/* Cross-run repetition */
+body[data-form="ritual"] .entity-shell {
+  inset: 16px;
+  border-radius: 50%;
+}
+
+body[data-form="ritual"] .entity-markings {
+  inset: 37px;
+  border: 1px solid rgba(210,203,241,.18);
+  border-radius: 50%;
+  background: none;
+}
+
+body[data-form="ritual"] .entity-ring,
+body[data-form="ritual"] .entity-fragments {
+  animation-timing-function: steps(12);
+}
+
+/* Cross-run exploration */
+body[data-form="wanderer"] .entity-core {
+  inset: 21px 34px 31px 16px;
+  border-radius: 68% 32% 57% 43% / 37% 65% 35% 63%;
+}
+
+body[data-form="wanderer"] .entity-shell {
+  inset: 10px 27px 16px 8px;
+  border-radius: 61% 39% 66% 34% / 45% 68% 32% 55%;
+  animation: shellDrift 4.6s ease-in-out infinite;
+}
+
+/* Rewritten outcome */
+body[data-form="palimpsest"] .entity-core {
+  inset: 29px;
+  border-radius: 38%;
+  box-shadow:
+    7px -5px 0 -2px rgba(115,151,158,.13),
+    -7px 6px 0 -2px rgba(157,145,207,.12),
+    0 0 44px rgba(150,139,200,.2);
+}
+
+body[data-form="palimpsest"] .entity-shell {
+  inset: 14px;
+  border-radius: 37%;
+  box-shadow:
+    5px -3px 0 rgba(121,158,163,.07),
+    -5px 4px 0 rgba(166,153,214,.07);
+}
