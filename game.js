@@ -428,9 +428,9 @@ function onEntityClick(event) {
   state.lastActiveAt = now;
   state.heat = Math.min(100, state.heat + heatBuildAmount(gap));
 
-  if (gap < 450) addTrait("force", 0.3);
-  else if (gap > 1900) addTrait("patience", 0.1);
-  else addTrait("force", 0.07);
+  // Ordinary clicking is neutral. Only distinctive behavior should shape evolution.
+  if (gap < 325) addTrait("force", 0.12);
+  else if (gap > 1600) addTrait("patience", 0.06);
 
   state.lastClickAt = now;
   spawnFloat(event, gain);
@@ -500,15 +500,37 @@ function considerEvolution() {
 }
 
 function considerFirstEvolution() {
-  if (state.lifetimeEnergy < 150) return;
+  // Give the player enough time to establish an actual play style before
+  // deciding what the Formless becomes.
+  if (state.lifetimeEnergy < 220) return;
 
+  const pressure = upgradeLevel("pressure");
+  const reservoir = upgradeLevel("reservoir");
+  const pulse = upgradeLevel("pulse");
+
+  // Shaping choices matter more than the unavoidable act of clicking.
+  // Behavior still nudges the result, but doesn't decide it by itself.
   const scores = [
-    ["ember", state.traits.force],
-    ["seed", state.traits.patience + Math.min(state.energy / 60, 7)],
-    ["mechanism", state.traits.industry + upgradeLevel("pulse") * 2.4]
+    ["ember", pressure * 4.5 + state.traits.force * 0.45],
+    [
+      "seed",
+      reservoir * 4.5 +
+      state.traits.patience * 0.7 +
+      Math.min(state.energy / 120, 3)
+    ],
+    [
+      "mechanism",
+      pulse * 4.5 +
+      state.traits.industry * 0.7
+    ]
   ].sort((a, b) => b[1] - a[1]);
 
-  if (scores[0][1] < 8) return;
+  const lead = scores[0][1] - scores[1][1];
+
+  // Require both commitment and a meaningful lead so a nearly-balanced
+  // player isn't arbitrarily pushed into whichever score happens to tick first.
+  if (scores[0][1] < 7 || lead < 1.25) return;
+
   evolve(scores[0][0], 1);
 }
 
