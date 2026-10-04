@@ -1465,7 +1465,7 @@ function secretEvolutionCandidate() {
   // Handbound is a deliberate rejection of automation after meaningfully
   // developing both manual-facing lessons, not simply "I never bought Pulse."
   if (
-    b.manualReliance >= 96 &&
+    b.manualReliance >= 92 &&
     b.abstinence >= 8 &&
     levels.pulse === 0 &&
     levels.pressure >= 3 &&
