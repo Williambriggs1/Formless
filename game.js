@@ -192,7 +192,14 @@ const el = {
   evoCopy: document.querySelector("#evolutionCopy"),
   continueButton: document.querySelector("#continueButton"),
   soundButton: document.querySelector("#soundButton"),
-  resetButton: document.querySelector("#resetButton")
+  resetButton: document.querySelector("#resetButton"),
+  shapingButton: document.querySelector("#shapingButton"),
+  codexButton: document.querySelector("#codexButton"),
+  shapingDrawer: document.querySelector("#shapingDrawer"),
+  codexDrawer: document.querySelector("#codexDrawer"),
+  shapingClose: document.querySelector("#shapingClose"),
+  codexClose: document.querySelector("#codexClose"),
+  drawerBackdrop: document.querySelector("#drawerBackdrop")
 };
 
 const debugMode =
@@ -204,6 +211,27 @@ if (debugMode) {
   debugPanel = document.createElement("pre");
   debugPanel.className = "debug-panel";
   document.body.appendChild(debugPanel);
+}
+
+function setDrawer(name = "") {
+  const active = name === "shaping" || name === "codex" ? name : "";
+
+  if (active) document.body.dataset.drawer = active;
+  else delete document.body.dataset.drawer;
+
+  const shapingOpen = active === "shaping";
+  const codexOpen = active === "codex";
+
+  el.shapingButton.setAttribute("aria-expanded", shapingOpen ? "true" : "false");
+  el.codexButton.setAttribute("aria-expanded", codexOpen ? "true" : "false");
+  el.shapingDrawer.setAttribute("aria-hidden", shapingOpen ? "false" : "true");
+  el.codexDrawer.setAttribute("aria-hidden", codexOpen ? "false" : "true");
+  el.drawerBackdrop.hidden = !active;
+}
+
+function toggleDrawer(name) {
+  const current = document.body.dataset.drawer || "";
+  setDrawer(current === name ? "" : name);
 }
 
 function findSave() {
@@ -1060,6 +1088,16 @@ function tick(now) {
 
 el.entity.addEventListener("click", onEntityClick);
 
+el.shapingButton.addEventListener("click", () => toggleDrawer("shaping"));
+el.codexButton.addEventListener("click", () => toggleDrawer("codex"));
+el.shapingClose.addEventListener("click", () => setDrawer(""));
+el.codexClose.addEventListener("click", () => setDrawer(""));
+el.drawerBackdrop.addEventListener("click", () => setDrawer(""));
+
+document.addEventListener("keydown", event => {
+  if (event.key === "Escape") setDrawer("");
+});
+
 el.continueButton.addEventListener("click", () => {
   el.overlay.hidden = true;
 });
@@ -1078,6 +1116,7 @@ el.soundButton.addEventListener("click", () => {
 
 el.resetButton.addEventListener("click", () => {
   if (releaseInProgress) return;
+  setDrawer("");
   if (!confirm("Release this form and begin again? Your Codex discoveries will remain.")) return;
 
   const discoveries = Array.from(new Set(["formless", ...(state.discovered || [])]));
