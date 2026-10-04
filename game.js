@@ -151,6 +151,11 @@ const freshState = () => ({
   stageTraits: { force: 0, patience: 0, industry: 0 },
   upgrades: { pressure: 0, reservoir: 0, pulse: 0 },
   discovered: ["formless"],
+  discoveryMeta: {
+    formless: { count: 1, firstAt: Date.now(), lastAt: Date.now() }
+  },
+  hintsSeen: {},
+  settings: { sound: false },
   firstEvolutionEnergy: 0,
   lastSavedAt: Date.now()
 });
@@ -162,10 +167,16 @@ let lastUpgradeRenderKey = "";
 let lastCodexRenderKey = "";
 let transientWhisper = "";
 let transientWhisperUntil = 0;
+let pendingEvolution = null;
+let teachingTimer = 0;
+let releaseInProgress = false;
+let audioContext = null;
+let lastTouchSoundAt = 0;
 
 const el = {
   energy: document.querySelector("#energy"),
   rateText: document.querySelector("#rateText"),
+  mechanicText: document.querySelector("#mechanicText"),
   entity: document.querySelector("#entity"),
   floatLayer: document.querySelector("#floatLayer"),
   whisper: document.querySelector("#whisper"),
@@ -179,8 +190,20 @@ const el = {
   evoTitle: document.querySelector("#evolutionTitle"),
   evoCopy: document.querySelector("#evolutionCopy"),
   continueButton: document.querySelector("#continueButton"),
+  soundButton: document.querySelector("#soundButton"),
   resetButton: document.querySelector("#resetButton")
 };
+
+const debugMode =
+  typeof location !== "undefined" &&
+  new URLSearchParams(location.search).get("debug") === "1";
+
+let debugPanel = null;
+if (debugMode) {
+  debugPanel = document.createElement("pre");
+  debugPanel.className = "debug-panel";
+  document.body.appendChild(debugPanel);
+}
 
 function findSave() {
   const current = localStorage.getItem(SAVE_KEY);
@@ -215,8 +238,17 @@ function load() {
       shapingStartedAt: parsed.shapingStartedAt || 0,
       stageTraits: { ...base.stageTraits, ...(parsed.stageTraits || {}) },
       upgrades: { ...base.upgrades, ...(parsed.upgrades || {}) },
-      discovered: Array.from(new Set(["formless", ...(parsed.discovered || [])]))
+      discovered: Array.from(new Set(["formless", ...(parsed.discovered || [])])),
+      discoveryMeta: { ...base.discoveryMeta, ...(parsed.discoveryMeta || {}) },
+      hintsSeen: { ...base.hintsSeen, ...(parsed.hintsSeen || {}) },
+      settings: { ...base.settings, ...(parsed.settings || {}) }
     };
+
+    merged.discovered.forEach(form => {
+      if (!merged.discoveryMeta[form]) {
+        merged.discoveryMeta[form] = { count: 1, firstAt: null, lastAt: null };
+      }
+    });
 
     if (legacyTier === 1 && !parsed.stageTraits) {
       merged.stageTraits = { force: 0, patience: 0, industry: 0 };
@@ -250,6 +282,123 @@ function load() {
 function save() {
   state.lastSavedAt = Date.now();
   localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+}
+
+function updateSoundButton() {
+  if (!el.soundButton) return;
+  const enabled = !!state.settings.sound;
+  el.soundButton.textContent = enabled ? "Sound on" : "Sound off";
+  el.soundButton.setAttribute("aria-pressed", enabled ? "true" : "false");
+}
+
+function ensureAudio() {
+  if (!state.settings.sound || typeof window === "undefined") return null;
+  const AudioCtor = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtor) return null;
+
+  if (!audioContext) audioContext = new AudioCtor();
+  if (audioContext.state === "suspended") audioContext.resume();
+  return audioContext;
+}
+
+function playTone(kind) {
+  if (!state.settings.sound) return;
+
+  const ctx = ensureAudio();
+  if (!ctx) return;
+
+  if (kind === "touch") {
+    const now = performance.now();
+    if (now - lastTouchSoundAt < 70) return;
+    lastTouchSoundAt = now;
+  }
+
+  const profiles = {
+    touch: [150, 0.035, 0.018, "sine"],
+    upgrade: [260, 0.12, 0.035, "triangle"],
+    evolve: [390, 0.7, 0.06, "sine"],
+    release: [190, 0.65, 0.05, "triangle"]
+  };
+
+  const [frequency, duration, volume, type] = profiles[kind] || profiles.touch;
+  const oscillator = ctx.createOscillator();
+  const gain = ctx.createGain();
+  const start = ctx.currentTime;
+
+  oscillator.type = type;
+  oscillator.frequency.setValueAtTime(frequency, start);
+
+  if (kind === "evolve") {
+    oscillator.frequency.exponentialRampToValueAtTime(frequency * 1.8, start + duration);
+  } else if (kind === "release") {
+    oscillator.frequency.exponentialRampToValueAtTime(Math.max(55, frequency * .45), start + duration);
+  }
+
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.exponentialRampToValueAtTime(volume, start + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+
+  oscillator.connect(gain);
+  gain.connect(ctx.destination);
+  oscillator.start(start);
+  oscillator.stop(start + duration + 0.03);
+}
+
+function reactToTeaching(id) {
+  if (!el.entity) return;
+  el.entity.dataset.teaching = id;
+  clearTimeout(teachingTimer);
+  teachingTimer = setTimeout(() => {
+    delete el.entity.dataset.teaching;
+  }, 700);
+  playTone("upgrade");
+}
+
+function showBehaviorHint(key, text, duration = 3000) {
+  if (state.hintsSeen[key]) return;
+  state.hintsSeen[key] = true;
+  transientWhisper = text;
+  transientWhisperUntil = Date.now() + duration;
+  save();
+}
+
+function maybeBehaviorHints() {
+  if (!state.shapingStartedAt || state.evolutionTier > 0) return;
+
+  if (state.heat >= 38) {
+    showBehaviorHint("force", "It notices when you rush it.");
+    return;
+  }
+
+  if (upgradeLevel("reservoir") > 0 && reservoirCharge() >= .38) {
+    showBehaviorHint("patience", "It is changing while you leave it undisturbed.");
+    return;
+  }
+
+  if (
+    upgradeLevel("pulse") >= 2 &&
+    state.lastClickAt &&
+    Date.now() - state.lastClickAt > 8000
+  ) {
+    showBehaviorHint("industry", "It continues even when your hand is gone.");
+  }
+}
+
+function recordDiscovery(form) {
+  const now = Date.now();
+
+  if (!state.discovered.includes(form)) {
+    state.discovered.push(form);
+  }
+
+  const existing = state.discoveryMeta[form];
+  state.discoveryMeta[form] = {
+    count: (existing?.count || 0) + 1,
+    firstAt: existing?.firstAt || now,
+    lastAt: now
+  };
+
+  lastCodexRenderKey = "";
 }
 
 function fmt(n) {
@@ -429,6 +578,8 @@ function passiveGain() {
 }
 
 function onEntityClick(event) {
+  if (releaseInProgress) return;
+
   const now = Date.now();
   const gap = state.lastClickAt ? now - state.lastClickAt : 1000;
   const gain = clickGain();
@@ -444,6 +595,7 @@ function onEntityClick(event) {
   else if (gap > 1600) addTrait("patience", 0.06);
 
   state.lastClickAt = now;
+  playTone("touch");
   spawnFloat(event, gain);
   considerEvolution();
   render();
@@ -468,6 +620,8 @@ function upgradeCost(def) {
 }
 
 function buyUpgrade(id) {
+  if (releaseInProgress) return;
+
   const def = upgradeDefs.find(x => x.id === id);
   if (!def) return;
 
@@ -497,6 +651,7 @@ function buyUpgrade(id) {
   addTrait(def.trait, 4 + level * 0.45);
   if (def.trait === "industry") addTrait("industry", 1.6);
 
+  reactToTeaching(id);
   lastUpgradeRenderKey = "";
   considerEvolution();
   render();
@@ -511,6 +666,37 @@ function traitScores(source) {
   ].sort((a, b) => b[1] - a[1]);
 }
 
+function clearPendingEvolution(tier) {
+  if (pendingEvolution?.tier === tier) pendingEvolution = null;
+}
+
+function queueEvolution(form, tier) {
+  if (!form) {
+    clearPendingEvolution(tier);
+    return;
+  }
+
+  if (pendingEvolution?.form === form && pendingEvolution?.tier === tier) return;
+
+  pendingEvolution = {
+    form,
+    tier,
+    startedAt: Date.now()
+  };
+
+  transientWhisper = "Something inside it is rearranging itself.";
+  transientWhisperUntil = Date.now() + 5200;
+}
+
+function advancePendingEvolution() {
+  if (!pendingEvolution) return;
+  if (Date.now() - pendingEvolution.startedAt < 4500) return;
+
+  const next = pendingEvolution;
+  pendingEvolution = null;
+  evolve(next.form, next.tier);
+}
+
 function considerEvolution() {
   if (state.evolutionTier === 0) considerFirstEvolution();
   else if (state.evolutionTier === 1) considerSecondEvolution();
@@ -519,7 +705,10 @@ function considerEvolution() {
 function considerFirstEvolution() {
   // Give the player enough time to establish an actual play style before
   // deciding what the Formless becomes.
-  if (state.lifetimeEnergy < 220) return;
+  if (state.lifetimeEnergy < 220) {
+    clearPendingEvolution(1);
+    return;
+  }
 
   const pressure = upgradeLevel("pressure");
   const reservoir = upgradeLevel("reservoir");
@@ -527,7 +716,10 @@ function considerFirstEvolution() {
 
   // Shaping choices matter more than the unavoidable act of clicking.
   // Behavior still nudges the result, but doesn't decide it by itself.
-  if (!state.shapingStartedAt) return;
+  if (!state.shapingStartedAt) {
+    clearPendingEvolution(1);
+    return;
+  }
 
   const shaping = state.shapingTraits;
 
@@ -550,21 +742,30 @@ function considerFirstEvolution() {
 
   // Require both commitment and a meaningful lead so a nearly-balanced
   // player isn't arbitrarily pushed into whichever score happens to tick first.
-  if (scores[0][1] < 7 || lead < 1.25) return;
+  if (scores[0][1] < 7 || lead < 1.25) {
+    clearPendingEvolution(1);
+    return;
+  }
 
-  evolve(scores[0][0], 1);
+  queueEvolution(scores[0][0], 1);
 }
 
 function considerSecondEvolution() {
   const gainedSinceFirst = state.lifetimeEnergy - state.firstEvolutionEnergy;
-  if (gainedSinceFirst < 950) return;
+  if (gainedSinceFirst < 950) {
+    clearPendingEvolution(2);
+    return;
+  }
 
   const ranked = traitScores(state.stageTraits);
   const highest = ranked[0][1];
   const lowest = ranked[2][1];
   const spread = highest - lowest;
 
-  if (highest < 12) return;
+  if (highest < 12) {
+    clearPendingEvolution(2);
+    return;
+  }
 
   let next;
 
@@ -581,7 +782,8 @@ function considerSecondEvolution() {
     next = branches[state.form]?.[primary];
   }
 
-  if (next) evolve(next, 2);
+  if (next) queueEvolution(next, 2);
+  else clearPendingEvolution(2);
 }
 
 function evolve(form, tier) {
@@ -595,7 +797,7 @@ function evolve(form, tier) {
     state.shapingTraits = { force: 0, patience: 0, industry: 0 };
   }
 
-  if (!state.discovered.includes(form)) state.discovered.push(form);
+  recordDiscovery(form);
 
   lastUpgradeRenderKey = "";
 
@@ -604,6 +806,7 @@ function evolve(form, tier) {
   el.evoTitle.textContent = evo.name;
   el.evoCopy.textContent = evo.copy;
   el.overlay.hidden = false;
+  playTone("evolve");
 
   save();
   render();
@@ -661,8 +864,26 @@ function codexOrder() {
   ];
 }
 
+function formatDiscoveryDate(timestamp) {
+  if (!timestamp) return "from an earlier run";
+  try {
+    return new Date(timestamp).toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric"
+    });
+  } catch {
+    return "from an earlier run";
+  }
+}
+
 function renderCodex() {
-  const renderKey = state.discovered.slice().sort().join("|");
+  const renderKey =
+    state.discovered.slice().sort().join("|") + "|" +
+    Object.entries(state.discoveryMeta)
+      .map(([key, value]) => key + ":" + (value?.count || 0))
+      .sort()
+      .join("|");
   if (renderKey === lastCodexRenderKey) return;
 
   lastCodexRenderKey = renderKey;
@@ -676,11 +897,19 @@ function renderCodex() {
     entry.className = "codex-entry tier-" + evo.tier + (known ? " discovered" : "");
 
     if (known) {
+      const meta = state.discoveryMeta[key] || {};
+      const reached = Math.max(1, meta.count || 1);
+      const lore = evo.whisper || "It left an impression.";
+
       entry.innerHTML = `
         <span class="codex-glyph">${evo.glyph}</span>
         <span>
           <strong>${evo.name}</strong>
           <small>${evo.tier === 0 ? "Origin" : "Evolution " + evo.tier}</small>
+          <span class="codex-meta">
+            ${lore}<br>
+            ${reached} ${reached === 1 ? "time" : "times"} reached · ${formatDiscoveryDate(meta.firstAt)}
+          </span>
         </span>
       `;
     } else {
@@ -704,13 +933,55 @@ function evolutionStatusText() {
 
 function mechanicStatusText() {
   const parts = [];
+  const pressure = upgradeLevel("pressure");
+  const reservoir = upgradeLevel("reservoir");
+  const pulse = upgradeLevel("pulse");
+
+  if (pressure > 0 && state.heat >= 12) {
+    parts.push(state.heat >= 72 ? "blazing" : state.heat >= 38 ? "heated" : "warming");
+  }
+
+  if (reservoir > 0) {
+    const charge = reservoirCharge();
+    if (charge >= .75) parts.push("deeply held");
+    else if (charge >= .3) parts.push("settling");
+  }
+
+  if (pulse > 0) {
+    parts.push(pulse >= 8 ? "strong pulse" : pulse >= 4 ? "steady pulse" : "faint pulse");
+  }
+
+  return parts.join("  ·  ");
+}
+
+function renderDebug() {
+  if (!debugPanel) return;
+
   const p = upgradeLevel("pressure");
   const r = upgradeLevel("reservoir");
+  const u = upgradeLevel("pulse");
+  const shaping = state.shapingTraits;
+  const firstScores = {
+    ember: p * 4.5 + Math.min(shaping.force, 6) * .8,
+    seed: r * 4.5 + Math.min(shaping.patience, 6) * .9 + Math.min(state.energy / 180, 2),
+    mechanism: u * 4.5 + Math.min(shaping.industry, 6) * .9
+  };
 
-  if (p > 0) parts.push("heat " + Math.round(state.heat) + "%");
-  if (r > 0) parts.push("reserve ×" + reservoirMultiplier().toFixed(2));
-
-  return parts.length ? "  ·  " + parts.join("  ·  ") : "";
+  debugPanel.textContent = [
+    "FORMLESS DEBUG",
+    "form: " + state.form + " / tier " + state.evolutionTier,
+    "energy: " + state.energy.toFixed(2),
+    "lifetime: " + state.lifetimeEnergy.toFixed(2),
+    "upgrades: P" + p + " R" + r + " U" + u,
+    "heat: " + state.heat.toFixed(1),
+    "reserve charge: " + (reservoirCharge() * 100).toFixed(1) + "%",
+    "passive: " + passiveGain().toFixed(3) + "/s",
+    "traits: " + JSON.stringify(state.traits),
+    "shaping: " + JSON.stringify(state.shapingTraits),
+    "stage: " + JSON.stringify(state.stageTraits),
+    "first scores: " + JSON.stringify(firstScores),
+    "pending: " + (pendingEvolution ? pendingEvolution.form + " / tier " + pendingEvolution.tier : "none")
+  ].join("\n");
 }
 
 function render() {
@@ -718,6 +989,15 @@ function render() {
 
   document.body.dataset.form = state.form;
   document.body.dataset.family = evo.family;
+  document.body.dataset.evolving = pendingEvolution ? "true" : "false";
+
+  const heatVisual = Math.min(1, state.heat / 100);
+  const reserveVisual = Math.min(1, reservoirCharge());
+  const pulseVisual = Math.min(1, upgradeLevel("pulse") / 10);
+
+  el.entity.style.setProperty("--heat", heatVisual.toFixed(3));
+  el.entity.style.setProperty("--reserve", reserveVisual.toFixed(3));
+  el.entity.style.setProperty("--pulse", pulseVisual.toFixed(3));
 
   el.energy.textContent = fmt(state.energy);
 
@@ -725,15 +1005,18 @@ function render() {
   const passive = passiveGain();
   el.rateText.textContent =
     "+" + touch + " per touch" +
-    (passive > 0 ? "  ·  +" + passive.toFixed(1) + "/sec" : "") +
-    mechanicStatusText();
+    (passive > 0 ? "  ·  +" + passive.toFixed(1) + "/sec" : "");
+
+  el.mechanicText.textContent = mechanicStatusText();
 
   el.formName.textContent = evo.name;
   el.whisper.textContent = Date.now() < transientWhisperUntil ? transientWhisper : evo.whisper;
   el.evolutionStatus.textContent = evolutionStatusText();
 
+  updateSoundButton();
   renderUpgrades();
   renderCodex();
+  renderDebug();
 }
 
 function tick(now) {
@@ -760,7 +1043,9 @@ function tick(now) {
     autosaveTimer = 0;
   }
 
+  maybeBehaviorHints();
   considerEvolution();
+  advancePendingEvolution();
   render();
   requestAnimationFrame(tick);
 }
@@ -771,25 +1056,54 @@ el.continueButton.addEventListener("click", () => {
   el.overlay.hidden = true;
 });
 
+el.soundButton.addEventListener("click", () => {
+  state.settings.sound = !state.settings.sound;
+  updateSoundButton();
+
+  if (state.settings.sound) {
+    ensureAudio();
+    playTone("upgrade");
+  }
+
+  save();
+});
+
 el.resetButton.addEventListener("click", () => {
-  if (!confirm("Release this form and begin again? Your Codex discoveries will be kept.")) return;
+  if (releaseInProgress) return;
+  if (!confirm("Release this form and begin again? Your Codex discoveries will remain.")) return;
 
   const discoveries = Array.from(new Set(["formless", ...(state.discovered || [])]));
+  const discoveryMeta = { ...state.discoveryMeta };
+  const hintsSeen = { ...state.hintsSeen };
+  const settings = { ...state.settings };
 
-  localStorage.removeItem(SAVE_KEY);
-  LEGACY_SAVE_KEYS.forEach(key => localStorage.removeItem(key));
+  releaseInProgress = true;
+  pendingEvolution = null;
+  document.body.dataset.releasing = "true";
+  playTone("release");
 
-  state = freshState();
-  state.discovered = discoveries;
+  setTimeout(() => {
+    localStorage.removeItem(SAVE_KEY);
+    LEGACY_SAVE_KEYS.forEach(key => localStorage.removeItem(key));
 
-  lastUpgradeRenderKey = "";
-  lastCodexRenderKey = "";
-  transientWhisper = "";
-  transientWhisperUntil = 0;
-  el.overlay.hidden = true;
+    state = freshState();
+    state.discovered = discoveries;
+    state.discoveryMeta = discoveryMeta;
+    state.hintsSeen = hintsSeen;
+    state.settings = settings;
 
-  render();
-  save();
+    lastUpgradeRenderKey = "";
+    lastCodexRenderKey = "";
+    transientWhisper = "";
+    transientWhisperUntil = 0;
+    el.overlay.hidden = true;
+
+    document.body.dataset.releasing = "false";
+    releaseInProgress = false;
+
+    render();
+    save();
+  }, 850);
 });
 
 document.addEventListener("visibilitychange", () => {
