@@ -222,6 +222,7 @@ const behaviorRuntimeDefaults = () => ({
   manualEnergy: 0,
   passiveEnergy: 0,
   burstEpisodes: 0,
+  stageClicks: 0,
   forceWarningShown: false,
   repeatWarningShown: false
 });
@@ -902,7 +903,7 @@ function updateHiddenBehaviors(dt) {
   if (
     runSeconds >= 150 &&
     state.behaviorRuntime.purchases <= 2 &&
-    state.clicks <= 55 &&
+    state.behaviorRuntime.stageClicks <= 55 &&
     state.lifetimeEnergy >= 900
   ) {
     addBehavior("minimalism", dt * .025);
@@ -1185,6 +1186,7 @@ function onEntityClick(event) {
   state.energy += gain;
   state.lifetimeEnergy += gain;
   state.behaviorRuntime.manualEnergy += gain;
+  state.behaviorRuntime.stageClicks += 1;
   state.behaviorRuntime.energyPeak = Math.max(state.behaviorRuntime.energyPeak, state.energy);
   state.clicks += 1;
   state.lastActiveAt = now;
