@@ -18,6 +18,7 @@ The current prototype includes:
   - **Seed**
   - **Mechanism**
 - A second evolution layer with family, hybrid, rare, and secret outcomes
+- Limited Evolution III outcomes for extreme specialization patterns
 - Hidden behavior tracking beyond the three core instincts
 - Long-term run history that can influence unusual outcomes across releases
 - Distinct mechanics for Heat, Reservoir, and Pulse
@@ -69,6 +70,8 @@ Formless
 Second-generation forms
    ↓
 Hybrid / rare / secret outcomes
+   ↓
+Specialized Evolution III outcomes
 ```
 
 I intentionally keep the exact branch conditions undocumented.
