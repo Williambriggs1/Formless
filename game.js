@@ -146,6 +146,8 @@ const freshState = () => ({
   evolutionCount: 0,
   heat: 0,
   traits: { force: 0, patience: 0, industry: 0 },
+  shapingTraits: { force: 0, patience: 0, industry: 0 },
+  shapingStartedAt: 0,
   stageTraits: { force: 0, patience: 0, industry: 0 },
   upgrades: { pressure: 0, reservoir: 0, pulse: 0 },
   discovered: ["formless"],
@@ -209,6 +211,8 @@ function load() {
       heat: Number.isFinite(parsed.heat) ? parsed.heat : 0,
       lastSpendAt: parsed.lastSpendAt || parsed.lastSavedAt || Date.now(),
       traits: { ...base.traits, ...(parsed.traits || {}) },
+      shapingTraits: { ...base.shapingTraits, ...(parsed.shapingTraits || {}) },
+      shapingStartedAt: parsed.shapingStartedAt || 0,
       stageTraits: { ...base.stageTraits, ...(parsed.stageTraits || {}) },
       upgrades: { ...base.upgrades, ...(parsed.upgrades || {}) },
       discovered: Array.from(new Set(["formless", ...(parsed.discovered || [])]))
@@ -263,7 +267,14 @@ function fmt(n) {
 
 function addTrait(trait, amount, target = state) {
   target.traits[trait] += amount;
-  if (target.evolutionTier === 1) target.stageTraits[trait] += amount;
+
+  if (target.evolutionTier === 0 && target.shapingStartedAt) {
+    target.shapingTraits[trait] += amount;
+  }
+
+  if (target.evolutionTier === 1) {
+    target.stageTraits[trait] += amount;
+  }
 }
 
 function upgradeLevel(id, target = state) {
@@ -474,6 +485,12 @@ function buyUpgrade(id) {
   }
 
   state.energy -= cost;
+
+  if (!state.shapingStartedAt && state.evolutionTier === 0) {
+    state.shapingStartedAt = Date.now();
+    state.shapingTraits = { force: 0, patience: 0, industry: 0 };
+  }
+
   state.upgrades[id] = level + 1;
   state.lastSpendAt = Date.now();
 
@@ -510,18 +527,22 @@ function considerFirstEvolution() {
 
   // Shaping choices matter more than the unavoidable act of clicking.
   // Behavior still nudges the result, but doesn't decide it by itself.
+  if (!state.shapingStartedAt) return;
+
+  const shaping = state.shapingTraits;
+
   const scores = [
-    ["ember", pressure * 4.5 + state.traits.force * 0.45],
+    ["ember", pressure * 4.5 + Math.min(shaping.force, 6) * 0.8],
     [
       "seed",
       reservoir * 4.5 +
-      state.traits.patience * 0.7 +
-      Math.min(state.energy / 120, 3)
+      Math.min(shaping.patience, 6) * 0.9 +
+      Math.min(state.energy / 180, 2)
     ],
     [
       "mechanism",
       pulse * 4.5 +
-      state.traits.industry * 0.7
+      Math.min(shaping.industry, 6) * 0.9
     ]
   ].sort((a, b) => b[1] - a[1]);
 
@@ -571,6 +592,7 @@ function evolve(form, tier) {
   if (tier === 1) {
     state.firstEvolutionEnergy = state.lifetimeEnergy;
     state.stageTraits = { force: 0, patience: 0, industry: 0 };
+    state.shapingTraits = { force: 0, patience: 0, industry: 0 };
   }
 
   if (!state.discovered.includes(form)) state.discovered.push(form);
