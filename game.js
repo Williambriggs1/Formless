@@ -1,5 +1,5 @@
-const SAVE_KEY = "formless-save-v3";
-const LEGACY_SAVE_KEYS = ["formless-save-v2", "formless-save-v1"];
+const SAVE_KEY = "formless-save-v4";
+const LEGACY_SAVE_KEYS = ["formless-save-v3", "formless-save-v2", "formless-save-v1"];
 
 const evolutions = {
   formless: {
@@ -75,6 +75,67 @@ const evolutions = {
     tier: 2, family: "rare", name: "Convergence", glyph: "✧",
     whisper: "For once, no instinct won.",
     copy: "Force, patience, and industry remained in balance long enough for something stranger to emerge."
+  },
+
+  vault: {
+    tier: 2, family: "secret", name: "Vault", glyph: "◈",
+    whisper: "It learned that possibility can be stored.",
+    copy: "You had enough to change it and chose not to. Potential folded inward until restraint became structure."
+  },
+  flashpoint: {
+    tier: 2, family: "secret", name: "Flashpoint", glyph: "✺",
+    whisper: "It expects everything to happen at once.",
+    copy: "You taught it urgency in bursts: gather, spend, strike, empty, repeat. Eventually it stopped waiting between impulses."
+  },
+  resonance: {
+    tier: 2, family: "secret", name: "Resonance", glyph: "≋",
+    whisper: "It remembers the interval between your hands.",
+    copy: "Nothing you taught it was extreme. The repetition itself became the lesson."
+  },
+  autarch: {
+    tier: 2, family: "secret", name: "Autarch", glyph: "⌁",
+    whisper: "It has begun to consider you optional.",
+    copy: "You gave it work, then stopped interfering. The process continued until autonomy became identity."
+  },
+  handbound: {
+    tier: 2, family: "secret", name: "Handbound", glyph: "✣",
+    whisper: "It waits specifically for you.",
+    copy: "Even when it could have learned independence, you remained the source of nearly everything it received."
+  },
+  hollow: {
+    tier: 2, family: "secret", name: "Hollow", glyph: "○",
+    whisper: "What you refused to teach became part of it.",
+    copy: "You progressed by omission. Empty places remained empty long enough to become deliberate."
+  },
+  afterimage: {
+    tier: 2, family: "secret", name: "Afterimage", glyph: "◍",
+    whisper: "It changed while no one was looking.",
+    copy: "Time passed without your hand. When you returned, the absence was still inside it."
+  },
+  undertow: {
+    tier: 2, family: "secret", name: "Undertow", glyph: "≀",
+    whisper: "Every gain seems to anticipate the next loss.",
+    copy: "You taught it to fill and empty, then contradicted the lesson that created it. The cycle pulled the form somewhere else."
+  },
+  monolith: {
+    tier: 2, family: "secret", name: "Monolith", glyph: "▰",
+    whisper: "One lesson has drowned out the others.",
+    copy: "You returned to the same instinct until alternatives stopped feeling possible."
+  },
+  ritual: {
+    tier: 2, family: "secret", name: "Ritual", glyph: "⟡",
+    whisper: "It recognizes what you always do.",
+    copy: "This was not the first time you taught a form this way. Repetition survived the release."
+  },
+  wanderer: {
+    tier: 2, family: "secret", name: "Wanderer", glyph: "⋄",
+    whisper: "It refuses to become familiar.",
+    copy: "You kept choosing unfamiliar paths. Variety itself became the only consistent thing about you."
+  },
+  palimpsest: {
+    tier: 2, family: "secret", name: "Palimpsest", glyph: "⧉",
+    whisper: "Something underneath this form remembers a different ending.",
+    copy: "You repeated the beginning but not the result. Old outcomes remained beneath the new one like erased writing."
   }
 };
 
@@ -133,6 +194,42 @@ const shapingLanguage = {
   }
 };
 
+const behaviorDefaults = () => ({
+  hoarding: 0,
+  impulse: 0,
+  bursts: 0,
+  consistency: 0,
+  specialization: 0,
+  balance: 0,
+  abstinence: 0,
+  dormancy: 0,
+  returning: 0,
+  activeNeglect: 0,
+  automationReliance: 0,
+  manualReliance: 0,
+  cycling: 0,
+  deepSaving: 0,
+  reversal: 0,
+  minimalism: 0,
+  overactivity: 0
+});
+
+const behaviorRuntimeDefaults = () => ({
+  affordableSince: { pressure: 0, reservoir: 0, pulse: 0 },
+  affordableLast: { pressure: false, reservoir: false, pulse: false },
+  energyPeak: 0,
+  purchases: 0,
+  manualEnergy: 0,
+  passiveEnergy: 0
+});
+
+const historyDefaults = () => ({
+  releases: [],
+  repetition: 0,
+  exploration: 0,
+  misremember: 0
+});
+
 const freshState = () => ({
   energy: 0,
   lifetimeEnergy: 0,
@@ -150,6 +247,10 @@ const freshState = () => ({
   shapingStartedAt: 0,
   stageTraits: { force: 0, patience: 0, industry: 0 },
   upgrades: { pressure: 0, reservoir: 0, pulse: 0 },
+  behaviors: behaviorDefaults(),
+  behaviorRuntime: behaviorRuntimeDefaults(),
+  history: historyDefaults(),
+  firstForm: "",
   discovered: ["formless"],
   discoveryMeta: {
     formless: { count: 1, firstAt: Date.now(), lastAt: Date.now() }
@@ -173,6 +274,10 @@ let teachingTimer = 0;
 let releaseInProgress = false;
 let audioContext = null;
 let lastTouchSoundAt = 0;
+let recentClickTimes = [];
+let recentClickGaps = [];
+let burstClickCount = 0;
+let burstLastClickAt = 0;
 
 const el = {
   energy: document.querySelector("#energy"),
@@ -268,6 +373,21 @@ function load() {
       shapingStartedAt: parsed.shapingStartedAt || 0,
       stageTraits: { ...base.stageTraits, ...(parsed.stageTraits || {}) },
       upgrades: { ...base.upgrades, ...(parsed.upgrades || {}) },
+      behaviors: { ...base.behaviors, ...(parsed.behaviors || {}) },
+      behaviorRuntime: {
+        ...base.behaviorRuntime,
+        ...(parsed.behaviorRuntime || {}),
+        affordableSince: {
+          ...base.behaviorRuntime.affordableSince,
+          ...(parsed.behaviorRuntime?.affordableSince || {})
+        },
+        affordableLast: {
+          ...base.behaviorRuntime.affordableLast,
+          ...(parsed.behaviorRuntime?.affordableLast || {})
+        }
+      },
+      history: { ...base.history, ...(parsed.history || {}) },
+      firstForm: parsed.firstForm || "",
       discovered: Array.from(new Set(["formless", ...(parsed.discovered || [])])),
       discoveryMeta: { ...base.discoveryMeta, ...(parsed.discoveryMeta || {}) },
       hintsSeen: { ...base.hintsSeen, ...(parsed.hintsSeen || {}) },
@@ -292,12 +412,19 @@ function load() {
 
     merged.heat = Math.max(0, merged.heat - awaySeconds * heatDecayRate(merged));
 
+    if (awaySeconds >= 1800) {
+      const returnWeight = Math.min(12, Math.log2(awaySeconds / 900) * 2.2);
+      merged.behaviors.dormancy = Math.min(100, merged.behaviors.dormancy + returnWeight);
+      merged.behaviors.returning = Math.min(100, merged.behaviors.returning + 1);
+    }
+
     if (awaySeconds > 10) {
       const rate = passiveGainFor(merged, Date.now());
       if (rate > 0) {
         const gained = rate * awaySeconds;
         merged.energy += gained;
         merged.lifetimeEnergy += gained;
+        merged.behaviorRuntime.passiveEnergy += gained;
         addTrait("patience", Math.min(awaySeconds / 180, 20), merged);
         addTrait("industry", Math.min((awaySeconds / 300) * rate, 14), merged);
       }
@@ -393,7 +520,56 @@ function showBehaviorHint(key, text, duration = 3000) {
 }
 
 function maybeBehaviorHints() {
-  if (!state.shapingStartedAt || state.evolutionTier > 0) return;
+  if (!state.shapingStartedAt) return;
+
+  const b = state.behaviors;
+
+  if (b.hoarding >= 3) {
+    showBehaviorHint("hidden-hoarding", "It noticed that you could have changed it.");
+    return;
+  }
+
+  if (b.impulse >= 3) {
+    showBehaviorHint("hidden-impulse", "It has learned how quickly you spend what you gather.");
+    return;
+  }
+
+  if (b.bursts >= 3) {
+    showBehaviorHint("hidden-bursts", "It waits for the next outburst.");
+    return;
+  }
+
+  if (b.consistency >= 3) {
+    showBehaviorHint("hidden-consistency", "It remembers the rhythm.");
+    return;
+  }
+
+  if (b.abstinence >= 3) {
+    showBehaviorHint("hidden-abstinence", "It notices what you refuse to teach.");
+    return;
+  }
+
+  if (b.activeNeglect >= 3) {
+    showBehaviorHint("hidden-neglect", "You left it alone, though you did not leave.");
+    return;
+  }
+
+  if (b.dormancy >= 4) {
+    showBehaviorHint("hidden-dormancy", "It remembers the time without you.");
+    return;
+  }
+
+  if (b.cycling >= 2.2) {
+    showBehaviorHint("hidden-cycling", "You keep emptying it.");
+    return;
+  }
+
+  if (b.reversal >= 3) {
+    showBehaviorHint("hidden-reversal", "It no longer trusts your first lesson.");
+    return;
+  }
+
+  if (state.evolutionTier > 0) return;
 
   if (state.heat >= 38) {
     showBehaviorHint("force", "It notices when you rush it.");
@@ -458,6 +634,243 @@ function addTrait(trait, amount, target = state) {
 
 function upgradeLevel(id, target = state) {
   return Math.max(0, Number(target.upgrades[id] || 0));
+}
+
+function addBehavior(name, amount, target = state) {
+  if (!target.behaviors || !(name in target.behaviors)) return;
+  target.behaviors[name] = Math.max(0, Math.min(100, target.behaviors[name] + amount));
+}
+
+function nextUpgradeCost(id, target = state) {
+  const def = upgradeDefs.find(item => item.id === id);
+  if (!def) return Infinity;
+  const level = Math.max(0, Number(target.upgrades[id] || 0));
+  if (level >= def.max) return Infinity;
+  return Math.floor(def.baseCost * Math.pow(1.62, level));
+}
+
+function affordableShapes(target = state) {
+  return upgradeDefs.filter(def => {
+    const level = upgradeLevel(def.id, target);
+    return level < def.max && target.energy >= nextUpgradeCost(def.id, target);
+  });
+}
+
+function totalUpgradeLevels(target = state) {
+  return upgradeDefs.reduce((sum, def) => sum + upgradeLevel(def.id, target), 0);
+}
+
+function behaviorGenerationTotal(target = state) {
+  return target.behaviorRuntime.manualEnergy + target.behaviorRuntime.passiveEnergy;
+}
+
+function updateRelianceSignals(target = state) {
+  const total = behaviorGenerationTotal(target);
+  if (total < 200) return;
+
+  target.behaviors.manualReliance =
+    Math.max(0, Math.min(100, (target.behaviorRuntime.manualEnergy / total) * 100));
+  target.behaviors.automationReliance =
+    Math.max(0, Math.min(100, (target.behaviorRuntime.passiveEnergy / total) * 100));
+}
+
+function stageDominantTrait(target = state) {
+  const ranked = traitScores(target.stageTraits || { force: 0, patience: 0, industry: 0 });
+  return ranked[0]?.[1] >= 8 ? ranked[0][0] : "";
+}
+
+function firstFormInstinct(target = state) {
+  return {
+    ember: "force",
+    seed: "patience",
+    mechanism: "industry"
+  }[target.firstForm || target.form] || "";
+}
+
+function updateAffordabilitySignals(now = Date.now()) {
+  upgradeDefs.forEach(def => {
+    const affordable =
+      upgradeLevel(def.id) < def.max &&
+      state.energy >= nextUpgradeCost(def.id);
+
+    const wasAffordable = !!state.behaviorRuntime.affordableLast[def.id];
+
+    if (affordable && !wasAffordable) {
+      state.behaviorRuntime.affordableSince[def.id] = now;
+    } else if (!affordable) {
+      state.behaviorRuntime.affordableSince[def.id] = 0;
+    }
+
+    state.behaviorRuntime.affordableLast[def.id] = affordable;
+  });
+}
+
+function updateHiddenBehaviors(dt) {
+  if (!state.shapingStartedAt) return;
+
+  const affordable = affordableShapes();
+  const affordableCount = affordable.length;
+  const levels = upgradeDefs.map(def => upgradeLevel(def.id));
+  const totalLevels = levels.reduce((sum, level) => sum + level, 0);
+  const maxLevel = Math.max(...levels);
+  const minLevel = Math.min(...levels);
+  const spread = maxLevel - minLevel;
+
+  // Hoarding only exists when the player is actively refusing real choices.
+  if (affordableCount >= 2) {
+    addBehavior("hoarding", dt * (affordableCount === 3 ? .055 : .04));
+
+    const nextCosts = affordable.map(def => nextUpgradeCost(def.id));
+    const deepThreshold = Math.max(...nextCosts) * 5;
+    if (state.energy >= deepThreshold) {
+      addBehavior("deepSaving", dt * .035);
+    }
+  }
+
+  if (totalLevels >= 5) {
+    if (spread >= 4 && maxLevel / Math.max(1, totalLevels) >= .62) {
+      addBehavior("specialization", dt * .025);
+    }
+
+    if (spread <= 1) {
+      addBehavior("balance", dt * .024);
+    }
+
+    if (minLevel === 0) {
+      addBehavior("abstinence", dt * .023);
+    }
+  }
+
+  const inactiveFor = (Date.now() - state.lastActiveAt) / 1000;
+  if (
+    typeof document !== "undefined" &&
+    !document.hidden &&
+    inactiveFor >= 18 &&
+    affordableCount >= 2
+  ) {
+    addBehavior("activeNeglect", dt * .04);
+  }
+
+  const runSeconds = (Date.now() - state.startedAt) / 1000;
+  if (
+    runSeconds >= 150 &&
+    state.behaviorRuntime.purchases <= 2 &&
+    state.clicks <= 55 &&
+    state.lifetimeEnergy >= 900
+  ) {
+    addBehavior("minimalism", dt * .025);
+  }
+
+  if (state.evolutionTier === 1) {
+    const origin = firstFormInstinct();
+    const current = stageDominantTrait();
+    if (origin && current && origin !== current) {
+      addBehavior("reversal", dt * .03);
+    }
+  }
+
+  updateRelianceSignals();
+}
+
+function finalizeBurst(now = Date.now()) {
+  if (burstClickCount >= 7 && now - burstLastClickAt >= 900) {
+    addBehavior("bursts", Math.min(2.2, .65 + burstClickCount * .08));
+  }
+
+  if (now - burstLastClickAt >= 900) {
+    burstClickCount = 0;
+  }
+}
+
+function recordClickBehavior(gap, now) {
+  recentClickTimes.push(now);
+  recentClickTimes = recentClickTimes.filter(time => now - time <= 60000);
+
+  if (recentClickTimes.length >= 110) {
+    addBehavior("overactivity", .06);
+  }
+
+  if (gap < 260) {
+    burstClickCount += 1;
+    burstLastClickAt = now;
+  } else {
+    finalizeBurst(now);
+    burstClickCount = 1;
+    burstLastClickAt = now;
+  }
+
+  if (gap >= 250 && gap <= 2500) {
+    recentClickGaps.push(gap);
+    if (recentClickGaps.length > 18) recentClickGaps.shift();
+
+    if (recentClickGaps.length >= 10) {
+      const mean = recentClickGaps.reduce((a, b) => a + b, 0) / recentClickGaps.length;
+      const variance =
+        recentClickGaps.reduce((sum, value) => sum + Math.pow(value - mean, 2), 0) /
+        recentClickGaps.length;
+      const cv = Math.sqrt(variance) / Math.max(1, mean);
+
+      if (cv <= .16) addBehavior("consistency", .12);
+    }
+  }
+}
+
+function recordPurchaseBehavior(id, cost, beforeEnergy, now) {
+  const affordableSince = state.behaviorRuntime.affordableSince[id] || 0;
+  if (affordableSince) {
+    const reactionSeconds = (now - affordableSince) / 1000;
+    if (reactionSeconds <= 5) addBehavior("impulse", 1.3);
+    else if (reactionSeconds <= 10) addBehavior("impulse", .65);
+  }
+
+  const afterEnergy = beforeEnergy - cost;
+  state.behaviorRuntime.energyPeak = Math.max(
+    state.behaviorRuntime.energyPeak,
+    beforeEnergy
+  );
+
+  if (
+    beforeEnergy >= Math.max(100, cost * 1.35) &&
+    afterEnergy <= beforeEnergy * .35
+  ) {
+    addBehavior("cycling", 1.1);
+  }
+
+  state.behaviorRuntime.purchases += 1;
+}
+
+function recordRunHistory() {
+  if (state.evolutionTier <= 0) return;
+
+  const entry = {
+    firstForm: state.firstForm || (state.evolutionTier >= 1 ? state.form : ""),
+    finalForm: state.form,
+    tier: state.evolutionTier,
+    at: Date.now()
+  };
+
+  const releases = state.history.releases || [];
+  const previous = releases[releases.length - 1];
+  const seenFinalBefore = releases.some(item => item.finalForm === entry.finalForm);
+
+  if (previous) {
+    if (previous.finalForm === entry.finalForm) {
+      state.history.repetition += 1.5;
+    } else {
+      state.history.exploration += seenFinalBefore ? .6 : 1.25;
+    }
+
+    if (previous.firstForm === entry.firstForm) {
+      state.history.repetition += .4;
+      if (previous.finalForm !== entry.finalForm) {
+        state.history.misremember += 1;
+      }
+    }
+  } else {
+    state.history.exploration += 1;
+  }
+
+  state.history.releases = [...releases, entry].slice(-16);
 }
 
 function pressureBase(target = state) {
@@ -616,6 +1029,8 @@ function onEntityClick(event) {
 
   state.energy += gain;
   state.lifetimeEnergy += gain;
+  state.behaviorRuntime.manualEnergy += gain;
+  state.behaviorRuntime.energyPeak = Math.max(state.behaviorRuntime.energyPeak, state.energy);
   state.clicks += 1;
   state.lastActiveAt = now;
   state.heat = Math.min(100, state.heat + heatBuildAmount(gap));
@@ -624,6 +1039,7 @@ function onEntityClick(event) {
   if (gap < 325) addTrait("force", 0.12);
   else if (gap > 1600) addTrait("patience", 0.06);
 
+  recordClickBehavior(gap, now);
   state.lastClickAt = now;
   playTone("touch");
   spawnFloat(event, gain);
@@ -668,6 +1084,10 @@ function buyUpgrade(id) {
     return;
   }
 
+  const beforeEnergy = state.energy;
+  const purchaseTime = Date.now();
+  recordPurchaseBehavior(id, cost, beforeEnergy, purchaseTime);
+
   state.energy -= cost;
 
   if (!state.shapingStartedAt && state.evolutionTier === 0) {
@@ -676,7 +1096,8 @@ function buyUpgrade(id) {
   }
 
   state.upgrades[id] = level + 1;
-  state.lastSpendAt = Date.now();
+  state.lastSpendAt = purchaseTime;
+  state.lastActiveAt = purchaseTime;
 
   addTrait(def.trait, 4 + level * 0.45);
   if (def.trait === "industry") addTrait("industry", 1.6);
@@ -780,13 +1201,40 @@ function considerFirstEvolution() {
   queueEvolution(scores[0][0], 1);
 }
 
+function secretEvolutionCandidate() {
+  const b = state.behaviors;
+  const h = state.history;
+  const levels = {
+    pressure: upgradeLevel("pressure"),
+    reservoir: upgradeLevel("reservoir"),
+    pulse: upgradeLevel("pulse")
+  };
+  const totalLevels = levels.pressure + levels.reservoir + levels.pulse;
+  const maxLevel = Math.max(levels.pressure, levels.reservoir, levels.pulse);
+
+  if (h.misremember >= 2 && b.reversal >= 5) return "palimpsest";
+  if (h.repetition >= 3 && b.specialization >= 5) return "ritual";
+  if (h.exploration >= 4 && b.balance >= 4) return "wanderer";
+  if (b.dormancy >= 7 && b.returning >= 1) return "afterimage";
+  if (b.hoarding >= 6 && b.deepSaving >= 3.5 && levels.reservoir >= 3) return "vault";
+  if (b.impulse >= 4 && b.bursts >= 4 && b.overactivity >= 2.5) return "flashpoint";
+  if (b.consistency >= 4.5 && b.balance >= 3.5) return "resonance";
+  if (b.automationReliance >= 78 && b.activeNeglect >= 4.5 && levels.pulse >= 4) return "autarch";
+  if (b.manualReliance >= 90 && b.abstinence >= 4 && levels.pulse === 0) return "handbound";
+  if (b.abstinence >= 5 && b.minimalism >= 3 && totalLevels <= 8) return "hollow";
+  if (b.cycling >= 3.5 && b.reversal >= 4) return "undertow";
+  if (b.specialization >= 6 && b.abstinence >= 4 && maxLevel >= 8) return "monolith";
+
+  return "";
+}
+
 function considerSecondEvolution() {
   const gainedSinceFirst = state.lifetimeEnergy - state.firstEvolutionEnergy;
   const maturedFor = state.firstEvolutionAt
     ? (Date.now() - state.firstEvolutionAt) / 1000
     : 0;
 
-  if (gainedSinceFirst < 2600 || maturedFor < 150) {
+  if (gainedSinceFirst < 3200 || maturedFor < 240) {
     clearPendingEvolution(2);
     return;
   }
@@ -801,11 +1249,11 @@ function considerSecondEvolution() {
     return;
   }
 
-  let next;
+  let next = secretEvolutionCandidate();
 
-  if (lowest >= 10 && spread <= 5) {
+  if (!next && lowest >= 10 && spread <= 5) {
     next = "convergence";
-  } else {
+  } else if (!next) {
     const primary = ranked[0][0];
     const branches = {
       ember: { force: "inferno", patience: "core", industry: "furnace" },
@@ -826,6 +1274,7 @@ function evolve(form, tier) {
   state.evolutionCount += 1;
 
   if (tier === 1) {
+    state.firstForm = form;
     state.firstEvolutionEnergy = state.lifetimeEnergy;
     state.firstEvolutionAt = Date.now();
     state.stageTraits = { force: 0, patience: 0, industry: 0 };
@@ -895,7 +1344,10 @@ function codexOrder() {
     "inferno", "core", "furnace",
     "grove", "briar", "cultivator",
     "engine", "press", "clockwork",
-    "convergence"
+    "convergence",
+    "vault", "flashpoint", "resonance", "autarch",
+    "handbound", "hollow", "afterimage", "undertow",
+    "monolith", "ritual", "wanderer", "palimpsest"
   ];
 }
 
@@ -1014,6 +1466,13 @@ function renderDebug() {
     "traits: " + JSON.stringify(state.traits),
     "shaping: " + JSON.stringify(state.shapingTraits),
     "stage: " + JSON.stringify(state.stageTraits),
+    "behaviors: " + JSON.stringify(
+      Object.fromEntries(
+        Object.entries(state.behaviors).map(([key, value]) => [key, Number(value.toFixed(2))])
+      )
+    ),
+    "history: " + JSON.stringify(state.history),
+    "secret candidate: " + (secretEvolutionCandidate() || "none"),
     "first scores: " + JSON.stringify(firstScores),
     "matured: " + (state.firstEvolutionAt ? ((Date.now() - state.firstEvolutionAt) / 1000).toFixed(1) + "s" : "n/a"),
     "pending: " + (pendingEvolution ? pendingEvolution.form + " / tier " + pendingEvolution.tier : "none")
@@ -1066,12 +1525,18 @@ function tick(now) {
     const generated = perSecond * dt;
     state.energy += generated;
     state.lifetimeEnergy += generated;
+    state.behaviorRuntime.passiveEnergy += generated;
+    state.behaviorRuntime.energyPeak = Math.max(state.behaviorRuntime.energyPeak, state.energy);
     addTrait("industry", dt * 0.008 * Math.max(perSecond, 1));
   }
 
   if (Date.now() - state.lastActiveAt > 12000) {
     addTrait("patience", dt * 0.035);
   }
+
+  finalizeBurst(Date.now());
+  updateAffordabilitySignals(Date.now());
+  updateHiddenBehaviors(dt);
 
   autosaveTimer += dt;
   if (autosaveTimer > 5) {
@@ -1119,10 +1584,16 @@ el.resetButton.addEventListener("click", () => {
   setDrawer("");
   if (!confirm("Release this form and begin again? Your Codex discoveries will remain.")) return;
 
+  recordRunHistory();
+
   const discoveries = Array.from(new Set(["formless", ...(state.discovered || [])]));
   const discoveryMeta = { ...state.discoveryMeta };
   const hintsSeen = { ...state.hintsSeen };
   const settings = { ...state.settings };
+  const history = {
+    ...state.history,
+    releases: [...(state.history.releases || [])]
+  };
 
   releaseInProgress = true;
   pendingEvolution = null;
@@ -1138,6 +1609,7 @@ el.resetButton.addEventListener("click", () => {
     state.discoveryMeta = discoveryMeta;
     state.hintsSeen = hintsSeen;
     state.settings = settings;
+    state.history = history;
 
     lastUpgradeRenderKey = "";
     lastCodexRenderKey = "";
