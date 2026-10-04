@@ -465,21 +465,29 @@ function updateSoundButton() {
   el.soundButton.setAttribute("aria-pressed", enabled ? "true" : "false");
 }
 
-function ensureAudio() {
+async function ensureAudio() {
   if (!state.settings.sound || typeof window === "undefined") return null;
+
   const AudioCtor = window.AudioContext || window.webkitAudioContext;
   if (!AudioCtor) return null;
 
-  if (!audioContext) audioContext = new AudioCtor();
-  if (audioContext.state === "suspended") audioContext.resume();
-  return audioContext;
+  if (!audioContext) {
+    audioContext = new AudioCtor();
+  }
+
+  if (audioContext.state !== "running") {
+    try {
+      await audioContext.resume();
+    } catch {
+      return null;
+    }
+  }
+
+  return audioContext.state === "running" ? audioContext : null;
 }
 
-function playTone(kind) {
+async function playTone(kind) {
   if (!state.settings.sound) return;
-
-  const ctx = ensureAudio();
-  if (!ctx) return;
 
   if (kind === "touch") {
     const now = performance.now();
@@ -487,17 +495,21 @@ function playTone(kind) {
     lastTouchSoundAt = now;
   }
 
+  const ctx = await ensureAudio();
+  if (!ctx) return;
+
+  // Keep the tones subtle, but high enough to survive small mobile speakers.
   const profiles = {
-    touch: [150, 0.035, 0.018, "sine"],
-    upgrade: [260, 0.12, 0.035, "triangle"],
-    evolve: [390, 0.7, 0.06, "sine"],
-    release: [190, 0.65, 0.05, "triangle"]
+    touch: [420, 0.045, 0.035, "sine"],
+    upgrade: [620, 0.14, 0.065, "triangle"],
+    evolve: [520, 0.72, 0.095, "sine"],
+    release: [280, 0.68, 0.075, "triangle"]
   };
 
   const [frequency, duration, volume, type] = profiles[kind] || profiles.touch;
   const oscillator = ctx.createOscillator();
   const gain = ctx.createGain();
-  const start = ctx.currentTime;
+  const start = ctx.currentTime + 0.005;
 
   oscillator.type = type;
   oscillator.frequency.setValueAtTime(frequency, start);
@@ -505,17 +517,17 @@ function playTone(kind) {
   if (kind === "evolve") {
     oscillator.frequency.exponentialRampToValueAtTime(frequency * 1.8, start + duration);
   } else if (kind === "release") {
-    oscillator.frequency.exponentialRampToValueAtTime(Math.max(55, frequency * .45), start + duration);
+    oscillator.frequency.exponentialRampToValueAtTime(Math.max(80, frequency * .48), start + duration);
   }
 
   gain.gain.setValueAtTime(0.0001, start);
-  gain.gain.exponentialRampToValueAtTime(volume, start + 0.02);
+  gain.gain.exponentialRampToValueAtTime(volume, start + 0.018);
   gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
 
   oscillator.connect(gain);
   gain.connect(ctx.destination);
   oscillator.start(start);
-  oscillator.stop(start + duration + 0.03);
+  oscillator.stop(start + duration + 0.04);
 }
 
 function reactToTeaching(id) {
@@ -1670,17 +1682,25 @@ el.continueButton.addEventListener("click", () => {
   el.overlay.hidden = true;
 });
 
-el.soundButton.addEventListener("click", () => {
+el.soundButton.addEventListener("click", async () => {
   state.settings.sound = !state.settings.sound;
   updateSoundButton();
 
   if (state.settings.sound) {
-    ensureAudio();
-    playTone("upgrade");
+    await ensureAudio();
+    await playTone("upgrade");
   }
 
   save();
 });
+
+// iOS/WebKit can suspend Web Audio after page switches or browser UI changes.
+// Any real pointer gesture is an opportunity to wake it back up.
+document.addEventListener("pointerdown", () => {
+  if (state.settings.sound && audioContext?.state !== "running") {
+    ensureAudio();
+  }
+}, { passive: true });
 
 el.resetButton.addEventListener("click", () => {
   if (releaseInProgress) return;
