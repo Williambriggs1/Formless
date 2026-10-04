@@ -1761,3 +1761,110 @@ body[data-drawer="codex"] .drawer-toggle-right {
     -webkit-backdrop-filter: blur(3px);
   }
 }
+
+
+/* v0.4.6 dark frosted glass drawers */
+.drawer {
+  background:
+    linear-gradient(180deg, rgba(13,16,23,.72), rgba(7,9,14,.62));
+  border-color: rgba(255,255,255,.11);
+  box-shadow:
+    0 24px 80px rgba(0,0,0,.42),
+    inset 0 1px 0 rgba(255,255,255,.035);
+  backdrop-filter: blur(28px) saturate(118%);
+  -webkit-backdrop-filter: blur(28px) saturate(118%);
+}
+
+.drawer-header {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.025), rgba(255,255,255,.008));
+  border-bottom-color: rgba(255,255,255,.075);
+}
+
+.drawer-close {
+  background: rgba(255,255,255,.045);
+  border: 1px solid rgba(255,255,255,.055);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.035),
+    0 6px 18px rgba(0,0,0,.14);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.drawer-close:hover {
+  background: rgba(255,255,255,.075);
+  border-color: rgba(255,255,255,.09);
+}
+
+.drawer-backdrop {
+  background: rgba(2,4,8,.22);
+  backdrop-filter: blur(4px) brightness(.82);
+  -webkit-backdrop-filter: blur(4px) brightness(.82);
+}
+
+.drawer .upgrade,
+.drawer .codex-entry {
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.045), rgba(255,255,255,.018));
+  border-color: rgba(255,255,255,.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.025),
+    0 8px 22px rgba(0,0,0,.10);
+}
+
+.drawer .upgrade:hover:not(:disabled),
+.drawer .upgrade.locked:hover {
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.065), rgba(255,255,255,.026));
+  border-color: rgba(255,255,255,.12);
+}
+
+.drawer .codex-entry.discovered {
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.02));
+}
+
+.drawer .codex-entry:not(.discovered) {
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.018), rgba(255,255,255,.008));
+  border-color: rgba(255,255,255,.045);
+}
+
+.drawer-toggle {
+  background:
+    linear-gradient(180deg, rgba(14,17,23,.66), rgba(8,10,15,.56));
+  border-color: rgba(255,255,255,.10);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.03),
+    0 10px 28px rgba(0,0,0,.24);
+  backdrop-filter: blur(18px) saturate(115%);
+  -webkit-backdrop-filter: blur(18px) saturate(115%);
+}
+
+@media (max-width: 700px) {
+  .drawer {
+    background:
+      linear-gradient(180deg, rgba(12,15,22,.66), rgba(7,9,14,.56));
+    border-color: rgba(255,255,255,.12);
+    box-shadow:
+      0 22px 70px rgba(0,0,0,.40),
+      inset 0 1px 0 rgba(255,255,255,.04);
+    backdrop-filter: blur(30px) saturate(120%);
+    -webkit-backdrop-filter: blur(30px) saturate(120%);
+  }
+
+  .drawer-left .upgrade {
+    background:
+      linear-gradient(145deg, rgba(255,255,255,.052), rgba(255,255,255,.022));
+  }
+
+  .drawer-right .codex-entry {
+    background:
+      linear-gradient(145deg, rgba(255,255,255,.038), rgba(255,255,255,.015));
+  }
+
+  .drawer-right .codex-entry:not(.discovered) {
+    background:
+      linear-gradient(145deg, rgba(255,255,255,.014), rgba(255,255,255,.006));
+  }
+}
