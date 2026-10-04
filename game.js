@@ -118,12 +118,12 @@ const evolutions = {
     copy: "You taught it to fill and empty, then contradicted the lesson that created it. The cycle pulled the form somewhere else."
   },
   monolith: {
-    tier: 2, family: "secret", name: "Monolith", glyph: "▰",
+    tier: 3, family: "secret", name: "Monolith", glyph: "▰",
     whisper: "One lesson has drowned out the others.",
     copy: "You returned to the same instinct until alternatives stopped feeling possible."
   },
   ritual: {
-    tier: 2, family: "secret", name: "Ritual", glyph: "⟡",
+    tier: 3, family: "secret", name: "Ritual", glyph: "⟡",
     whisper: "It recognizes what you always do.",
     copy: "This was not the first time you taught a form this way. Repetition survived the release."
   },
@@ -260,6 +260,9 @@ const freshState = () => ({
   settings: { sound: false },
   firstEvolutionEnergy: 0,
   firstEvolutionAt: 0,
+  secondEvolutionEnergy: 0,
+  secondEvolutionAt: 0,
+  secondForm: "",
   lastSavedAt: Date.now()
 });
 
@@ -367,6 +370,9 @@ function load() {
       evolutionTier: legacyTier,
       evolutionCount: parsed.evolutionCount ?? legacyTier,
       firstEvolutionAt: parsed.firstEvolutionAt || 0,
+      secondEvolutionEnergy: parsed.secondEvolutionEnergy || 0,
+      secondEvolutionAt: parsed.secondEvolutionAt || 0,
+      secondForm: parsed.secondForm || "",
       heat: Number.isFinite(parsed.heat) ? parsed.heat : 0,
       lastSpendAt: parsed.lastSpendAt || parsed.lastSavedAt || Date.now(),
       traits: { ...base.traits, ...(parsed.traits || {}) },
@@ -404,6 +410,16 @@ function load() {
     if (legacyTier === 1 && !parsed.stageTraits) {
       merged.stageTraits = { force: 0, patience: 0, industry: 0 };
       merged.firstEvolutionEnergy = parsed.firstEvolutionEnergy || parsed.lifetimeEnergy || 0;
+    }
+
+    if (merged.evolutionTier >= 2 && !merged.secondEvolutionAt) {
+      merged.secondEvolutionEnergy = parsed.lifetimeEnergy || 0;
+      merged.secondEvolutionAt = parsed.lastSavedAt || Date.now();
+      merged.secondForm = parsed.form || "";
+    }
+
+    if (evolutions[merged.form]?.tier === 3 && merged.evolutionTier < 3) {
+      merged.evolutionTier = 3;
     }
 
     const awaySeconds = Math.min(
@@ -1165,6 +1181,7 @@ function advancePendingEvolution() {
 function considerEvolution() {
   if (state.evolutionTier === 0) considerFirstEvolution();
   else if (state.evolutionTier === 1) considerSecondEvolution();
+  else if (state.evolutionTier === 2) considerThirdEvolution();
 }
 
 function considerFirstEvolution() {
@@ -1233,7 +1250,6 @@ function secretEvolutionCandidate() {
     sortedLevels[2] === 0;
 
   if (h.misremember >= 2.5 && b.reversal >= 7) return "palimpsest";
-  if (h.repetition >= 4 && b.specialization >= 7) return "ritual";
   if (h.exploration >= 5 && b.balance >= 6) return "wanderer";
   if (b.dormancy >= 9 && b.returning >= 2) return "afterimage";
   if (b.hoarding >= 8 && b.deepSaving >= 5 && levels.reservoir >= 4) return "vault";
@@ -1252,13 +1268,36 @@ function secretEvolutionCandidate() {
   if (b.abstinence >= 7 && b.minimalism >= 5 && totalLevels <= 7) return "hollow";
   if (b.cycling >= 5 && b.reversal >= 6) return "undertow";
 
-  // Monolith is intentionally much stricter than normal specialization:
-  // one Shape must nearly stand alone.
+  return "";
+}
+
+function thirdEvolutionCandidate() {
+  const b = state.behaviors;
+  const h = state.history;
+  const levels = [
+    upgradeLevel("pressure"),
+    upgradeLevel("reservoir"),
+    upgradeLevel("pulse")
+  ].sort((a, b) => b - a);
+
+  const extremeSinglePath =
+    levels[0] >= 11 &&
+    levels[1] <= 1 &&
+    levels[2] === 0;
+
+  // Monolith is the end-state of extreme single-path specialization.
   if (
     extremeSinglePath &&
-    b.specialization >= 9 &&
-    b.abstinence >= 7
+    b.specialization >= 14 &&
+    b.abstinence >= 10
   ) return "monolith";
+
+  // Ritual is specialization repeated strongly enough across separate runs
+  // that the behavior survives release.
+  if (
+    h.repetition >= 5 &&
+    b.specialization >= 11
+  ) return "ritual";
 
   return "";
 }
@@ -1303,6 +1342,24 @@ function considerSecondEvolution() {
   else clearPendingEvolution(2);
 }
 
+function considerThirdEvolution() {
+  const gainedSinceSecond = state.lifetimeEnergy - state.secondEvolutionEnergy;
+  const maturedFor = state.secondEvolutionAt
+    ? (Date.now() - state.secondEvolutionAt) / 1000
+    : 0;
+
+  // Tier III should feel like an end-state, not something that immediately
+  // follows the second evolution.
+  if (gainedSinceSecond < 7500 || maturedFor < 300) {
+    clearPendingEvolution(3);
+    return;
+  }
+
+  const next = thirdEvolutionCandidate();
+  if (next) queueEvolution(next, 3);
+  else clearPendingEvolution(3);
+}
+
 function evolve(form, tier) {
   state.form = form;
   state.evolutionTier = tier;
@@ -1314,6 +1371,12 @@ function evolve(form, tier) {
     state.firstEvolutionAt = Date.now();
     state.stageTraits = { force: 0, patience: 0, industry: 0 };
     state.shapingTraits = { force: 0, patience: 0, industry: 0 };
+  }
+
+  if (tier === 2) {
+    state.secondForm = form;
+    state.secondEvolutionEnergy = state.lifetimeEnergy;
+    state.secondEvolutionAt = Date.now();
   }
 
   recordDiscovery(form);
@@ -1449,8 +1512,10 @@ function renderCodex() {
 
 function evolutionStatusText() {
   if (state.evolutionTier === 0) return "Evolution: ???";
-  if (state.evolutionTier === 1) return "Evolution I · " + evolutions[state.form].name;
-  return "Evolution II · " + evolutions[state.form].name;
+
+  const numerals = { 1: "I", 2: "II", 3: "III" };
+  return "Evolution " + (numerals[state.evolutionTier] || state.evolutionTier) +
+    " · " + evolutions[state.form].name;
 }
 
 function mechanicStatusText() {
@@ -1508,9 +1573,11 @@ function renderDebug() {
     ),
     "burst episodes: " + state.behaviorRuntime.burstEpisodes,
     "history: " + JSON.stringify(state.history),
-    "secret candidate: " + (secretEvolutionCandidate() || "none"),
+    "secret tier II: " + (secretEvolutionCandidate() || "none"),
+    "secret tier III: " + (thirdEvolutionCandidate() || "none"),
     "first scores: " + JSON.stringify(firstScores),
-    "matured: " + (state.firstEvolutionAt ? ((Date.now() - state.firstEvolutionAt) / 1000).toFixed(1) + "s" : "n/a"),
+    "tier I matured: " + (state.firstEvolutionAt ? ((Date.now() - state.firstEvolutionAt) / 1000).toFixed(1) + "s" : "n/a"),
+    "tier II matured: " + (state.secondEvolutionAt ? ((Date.now() - state.secondEvolutionAt) / 1000).toFixed(1) + "s" : "n/a"),
     "pending: " + (pendingEvolution ? pendingEvolution.form + " / tier " + pendingEvolution.tier : "none")
   ].join("\n");
 }
