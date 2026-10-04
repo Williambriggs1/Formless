@@ -17,8 +17,9 @@ The current prototype includes:
   - **Ember**
   - **Seed**
   - **Mechanism**
-- A second evolution layer with family, hybrid, and rare outcomes
-- Behavior that is re-evaluated after the first evolution, allowing a run to change direction
+- A second evolution layer with family, hybrid, rare, and secret outcomes
+- Hidden behavior tracking beyond the three core instincts
+- Long-term run history that can influence unusual outcomes across releases
 - Distinct mechanics for Heat, Reservoir, and Pulse
 - Layered visual mutations that change with each form
 - A persistent Discovery Codex across released runs
@@ -28,14 +29,22 @@ The current prototype includes:
 - Local browser saves with migration from earlier versions
 - Limited offline progress
 - A single-screen mobile layout
-- Slide-out Shaping and Codex drawers for mobile play
+- Compact frosted-glass Shaping and Codex drawers
 - Mobile interaction protections against accidental scrolling, text selection, and double-tap zoom
+
+## Hidden behavior
+
+I intentionally track more than the visible Force, Patience, and Industry paths.
+
+The game watches patterns across clicking, spending, waiting, automation, restraint, repetition, and how a run changes over time. Some of those patterns can lead to forms that are not part of the obvious family tree.
+
+I do not document the exact thresholds or combinations.
 
 ## Design rule
 
-I intentionally do not document exact evolution recipes.
+I intentionally do not publish exact evolution recipes.
 
-I want the interface to hint at what the Formless is learning without directly explaining every condition. Experimentation and community discovery are part of the game.
+I want the interface to hint at what the Formless is learning without directly explaining every condition. Experimentation, comparison, and community discovery are part of the game.
 
 ## Run locally
 
@@ -59,7 +68,7 @@ Formless
    ↓
 Second-generation forms
    ↓
-Hybrid / rare outcomes
+Hybrid / rare / secret outcomes
 ```
 
 I intentionally keep the exact branch conditions undocumented.
@@ -68,12 +77,11 @@ I intentionally keep the exact branch conditions undocumented.
 
 The next areas I want to explore include:
 
-- Hidden behavioral signals beyond the three primary instincts
-- Secret forms and unusual evolution conditions
-- A deeper Release system
+- A deeper **Release** system
 - **Memory** as long-term progression left behind by released forms
 - More Codex depth and collection systems
 - Third-stage evolutions
 - Community discovery features
 - Optional account and cloud-save support
+- Discord integration
 - More environmental and entity mutations
