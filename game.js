@@ -1246,9 +1246,19 @@ function considerFirstEvolution() {
 
   const lead = scores[0][1] - scores[1][1];
 
-  // Require both commitment and a meaningful lead so a nearly-balanced
-  // player isn't arbitrarily pushed into whichever score happens to tick first.
-  if (scores[0][1] < 10 || lead < 1.75) {
+  if (scores[0][1] < 10) {
+    clearPendingEvolution(1);
+    return;
+  }
+
+  // Ambiguity can delay the first evolution, but it should never trap a
+  // player in Formless indefinitely. The longer the run remains unresolved,
+  // the less separation the leading instinct needs.
+  let requiredLead = 1.75;
+  if (state.lifetimeEnergy >= 900) requiredLead = 0.75;
+  if (state.lifetimeEnergy >= 1500) requiredLead = 0;
+
+  if (lead < requiredLead) {
     clearPendingEvolution(1);
     return;
   }
@@ -1423,6 +1433,16 @@ function considerThirdEvolution() {
   else clearPendingEvolution(3);
 }
 
+function resetStageBehavior() {
+  state.behaviors = behaviorDefaults();
+  state.behaviorRuntime = behaviorRuntimeDefaults();
+
+  recentClickTimes = [];
+  recentClickGaps = [];
+  burstClickCount = 0;
+  burstLastClickAt = 0;
+}
+
 function evolve(form, tier) {
   state.form = form;
   state.evolutionTier = tier;
@@ -1435,12 +1455,19 @@ function evolve(form, tier) {
     state.firstEvolutionUpgrades = { ...state.upgrades };
     state.stageTraits = { force: 0, patience: 0, industry: 0 };
     state.shapingTraits = { force: 0, patience: 0, industry: 0 };
+
+    // Tier II should respond to what the player does after becoming a first
+    // form, not hidden behavior accumulated while they were still Formless.
+    resetStageBehavior();
   }
 
   if (tier === 2) {
     state.secondForm = form;
     state.secondEvolutionEnergy = state.lifetimeEnergy;
     state.secondEvolutionAt = Date.now();
+
+    // Evolution III specialization is likewise earned after Tier II.
+    resetStageBehavior();
   }
 
   recordDiscovery(form);
@@ -1648,6 +1675,10 @@ function renderDebug() {
     "secret tier II: " + (secretEvolutionCandidate() || "none"),
     "secret tier III: " + (thirdEvolutionCandidate() || "none"),
     "first scores: " + JSON.stringify(firstScores),
+    "first lead required: " + (
+      state.lifetimeEnergy >= 1500 ? "0" :
+      state.lifetimeEnergy >= 900 ? "0.75" : "1.75"
+    ),
     "tier I matured: " + (state.firstEvolutionAt ? ((Date.now() - state.firstEvolutionAt) / 1000).toFixed(1) + "s" : "n/a"),
     "tier II matured: " + (state.secondEvolutionAt ? ((Date.now() - state.secondEvolutionAt) / 1000).toFixed(1) + "s" : "n/a"),
     "pending: " + (pendingEvolution ? pendingEvolution.form + " / tier " + pendingEvolution.tier : "none")
