@@ -1454,7 +1454,7 @@ function secretEvolutionCandidate() {
   // Flashpoint is repeated attack-pause-attack play, not ordinary sustained
   // spam clicking. Several genuine burst episodes must occur in the same run.
   if (
-    b.impulse >= 6 &&
+    b.impulse >= 5 &&
     state.behaviorRuntime.burstEpisodes >= 4 &&
     b.cycling >= 3
   ) return "flashpoint";
