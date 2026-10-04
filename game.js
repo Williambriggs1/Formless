@@ -220,7 +220,8 @@ const behaviorRuntimeDefaults = () => ({
   energyPeak: 0,
   purchases: 0,
   manualEnergy: 0,
-  passiveEnergy: 0
+  passiveEnergy: 0,
+  burstEpisodes: 0
 });
 
 const historyDefaults = () => ({
@@ -777,14 +778,15 @@ function updateHiddenBehaviors(dt) {
   updateRelianceSignals();
 }
 
-function finalizeBurst(now = Date.now()) {
-  if (burstClickCount >= 7 && now - burstLastClickAt >= 900) {
-    addBehavior("bursts", Math.min(2.2, .65 + burstClickCount * .08));
+function finalizeBurstEpisode() {
+  // A burst is intentionally a short attack followed by a real pause.
+  // One enormous uninterrupted spam session is sustained pressure, not bursting.
+  if (burstClickCount >= 7 && burstClickCount <= 45) {
+    state.behaviorRuntime.burstEpisodes += 1;
+    addBehavior("bursts", 1);
   }
 
-  if (now - burstLastClickAt >= 900) {
-    burstClickCount = 0;
-  }
+  burstClickCount = 0;
 }
 
 function recordClickBehavior(gap, now) {
@@ -795,14 +797,20 @@ function recordClickBehavior(gap, now) {
     addBehavior("overactivity", .06);
   }
 
-  if (gap < 260) {
-    burstClickCount += 1;
-    burstLastClickAt = now;
-  } else {
-    finalizeBurst(now);
+  if (gap >= 1200) {
+    // Credit the previous burst only when the player actually returns after
+    // the pause. Merely stopping a long clicking session is not a burst pattern.
+    finalizeBurstEpisode();
     burstClickCount = 1;
-    burstLastClickAt = now;
+  } else if (gap < 280) {
+    burstClickCount += 1;
+  } else {
+    // A short hesitation breaks the rapid cluster without creating a
+    // burst episode.
+    burstClickCount = 1;
   }
+
+  burstLastClickAt = now;
 
   if (gap >= 250 && gap <= 2500) {
     recentClickGaps.push(gap);
@@ -1218,18 +1226,39 @@ function secretEvolutionCandidate() {
   const totalLevels = levels.pressure + levels.reservoir + levels.pulse;
   const maxLevel = Math.max(levels.pressure, levels.reservoir, levels.pulse);
 
-  if (h.misremember >= 2 && b.reversal >= 5) return "palimpsest";
-  if (h.repetition >= 3 && b.specialization >= 5) return "ritual";
-  if (h.exploration >= 4 && b.balance >= 4) return "wanderer";
-  if (b.dormancy >= 7 && b.returning >= 1) return "afterimage";
-  if (b.hoarding >= 6 && b.deepSaving >= 3.5 && levels.reservoir >= 3) return "vault";
-  if (b.impulse >= 4 && b.bursts >= 4 && b.overactivity >= 2.5) return "flashpoint";
-  if (b.consistency >= 4.5 && b.balance >= 3.5) return "resonance";
-  if (b.automationReliance >= 78 && b.activeNeglect >= 4.5 && levels.pulse >= 4) return "autarch";
-  if (b.manualReliance >= 90 && b.abstinence >= 4 && levels.pulse === 0) return "handbound";
-  if (b.abstinence >= 5 && b.minimalism >= 3 && totalLevels <= 8) return "hollow";
-  if (b.cycling >= 3.5 && b.reversal >= 4) return "undertow";
-  if (b.specialization >= 6 && b.abstinence >= 4 && maxLevel >= 8) return "monolith";
+  const sortedLevels = Object.values(levels).sort((a, b) => b - a);
+  const extremeSinglePath =
+    sortedLevels[0] >= 10 &&
+    sortedLevels[1] <= 1 &&
+    sortedLevels[2] === 0;
+
+  if (h.misremember >= 2.5 && b.reversal >= 7) return "palimpsest";
+  if (h.repetition >= 4 && b.specialization >= 7) return "ritual";
+  if (h.exploration >= 5 && b.balance >= 6) return "wanderer";
+  if (b.dormancy >= 9 && b.returning >= 2) return "afterimage";
+  if (b.hoarding >= 8 && b.deepSaving >= 5 && levels.reservoir >= 4) return "vault";
+
+  // Flashpoint is repeated attack-pause-attack play, not ordinary sustained
+  // spam clicking. Several genuine burst episodes must occur in the same run.
+  if (
+    b.impulse >= 6 &&
+    state.behaviorRuntime.burstEpisodes >= 4 &&
+    b.cycling >= 3
+  ) return "flashpoint";
+
+  if (b.consistency >= 6 && b.balance >= 5) return "resonance";
+  if (b.automationReliance >= 84 && b.activeNeglect >= 6 && levels.pulse >= 5) return "autarch";
+  if (b.manualReliance >= 94 && b.abstinence >= 6 && levels.pulse === 0) return "handbound";
+  if (b.abstinence >= 7 && b.minimalism >= 5 && totalLevels <= 7) return "hollow";
+  if (b.cycling >= 5 && b.reversal >= 6) return "undertow";
+
+  // Monolith is intentionally much stricter than normal specialization:
+  // one Shape must nearly stand alone.
+  if (
+    extremeSinglePath &&
+    b.specialization >= 9 &&
+    b.abstinence >= 7
+  ) return "monolith";
 
   return "";
 }
@@ -1477,6 +1506,7 @@ function renderDebug() {
         Object.entries(state.behaviors).map(([key, value]) => [key, Number(value.toFixed(2))])
       )
     ),
+    "burst episodes: " + state.behaviorRuntime.burstEpisodes,
     "history: " + JSON.stringify(state.history),
     "secret candidate: " + (secretEvolutionCandidate() || "none"),
     "first scores: " + JSON.stringify(firstScores),
@@ -1540,7 +1570,6 @@ function tick(now) {
     addTrait("patience", dt * 0.035);
   }
 
-  finalizeBurst(Date.now());
   updateAffordabilitySignals(Date.now());
   updateHiddenBehaviors(dt);
 
