@@ -750,12 +750,16 @@ el.continueButton.addEventListener("click", () => {
 });
 
 el.resetButton.addEventListener("click", () => {
-  if (!confirm("Erase this form and begin again? Your discoveries in this browser will also reset.")) return;
+  if (!confirm("Release this form and begin again? Your Codex discoveries will be kept.")) return;
+
+  const discoveries = Array.from(new Set(["formless", ...(state.discovered || [])]));
 
   localStorage.removeItem(SAVE_KEY);
   LEGACY_SAVE_KEYS.forEach(key => localStorage.removeItem(key));
 
   state = freshState();
+  state.discovered = discoveries;
+
   lastUpgradeRenderKey = "";
   lastCodexRenderKey = "";
   transientWhisper = "";
