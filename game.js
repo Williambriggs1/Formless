@@ -736,7 +736,12 @@ function updateHiddenBehaviors(dt) {
       addBehavior("balance", dt * .024);
     }
 
-    if (minLevel === 0) {
+    const untouchedAffordable = upgradeDefs.some(def =>
+      upgradeLevel(def.id) === 0 &&
+      state.energy >= nextUpgradeCost(def.id)
+    );
+
+    if (minLevel === 0 && untouchedAffordable) {
       addBehavior("abstinence", dt * .023);
     }
   }
@@ -893,6 +898,7 @@ function formGroup(form = state.form) {
   if (["seed", "grove", "briar", "cultivator"].includes(form)) return "seed";
   if (["mechanism", "engine", "press", "clockwork"].includes(form)) return "mechanism";
   if (form === "convergence") return "convergence";
+  if (evolutions[form]?.family === "secret") return "convergence";
   return "origin";
 }
 
