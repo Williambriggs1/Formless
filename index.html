@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#08090d" />
   <title>Formless</title>
   <meta name="description" content="A clicker that becomes what you teach it to be." />
-  <link rel="stylesheet" href="styles.css?v=0.3.3" />
+  <link rel="stylesheet" href="styles.css?v=0.4.0" />
 </head>
 <body data-form="formless">
   <div class="ambient ambient-one"></div>
@@ -32,9 +32,24 @@
       <div class="entity-wrap">
         <div id="entityAura" class="entity-aura"></div>
         <button id="entity" class="entity" type="button" aria-label="Touch the form">
+          <span class="entity-shell"></span>
           <span class="entity-core"></span>
+          <span class="entity-markings"></span>
+
+          <span class="entity-fragments fragments-a">
+            <i></i><i></i><i></i><i></i>
+          </span>
+          <span class="entity-fragments fragments-b">
+            <i></i><i></i><i></i>
+          </span>
+
           <span class="entity-ring ring-one"></span>
           <span class="entity-ring ring-two"></span>
+          <span class="entity-ring ring-three"></span>
+
+          <span class="entity-node node-one"></span>
+          <span class="entity-node node-two"></span>
+          <span class="entity-node node-three"></span>
         </button>
         <div id="floatLayer" class="float-layer" aria-hidden="true"></div>
       </div>
@@ -81,6 +96,6 @@
     </div>
   </div>
 
-  <script src="game.js?v=0.3.3"></script>
+  <script src="game.js?v=0.4.0"></script>
 </body>
 </html>
