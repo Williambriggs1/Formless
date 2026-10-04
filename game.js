@@ -1277,7 +1277,11 @@ function secretEvolutionCandidate() {
   if (b.consistency >= 6 && b.balance >= 5) return "resonance";
   if (b.automationReliance >= 84 && b.activeNeglect >= 6 && levels.pulse >= 5) return "autarch";
   if (b.manualReliance >= 94 && b.abstinence >= 6 && levels.pulse === 0) return "handbound";
-  if (b.abstinence >= 7 && b.minimalism >= 5 && totalLevels <= 7) return "hollow";
+  if (
+    b.minimalism >= 5 &&
+    state.behaviorRuntime.purchases <= 2 &&
+    totalLevels <= 2
+  ) return "hollow";
   if (b.cycling >= 5 && b.reversal >= 6) return "undertow";
 
   return "";
