@@ -1575,3 +1575,189 @@ body[data-drawer="codex"] .drawer-toggle-right {
     min-height: 44px;
   }
 }
+
+
+/* v0.4.5 compact mobile utility drawers */
+.codex-meta {
+  display: block;
+}
+
+.codex-lore,
+.codex-history {
+  display: block;
+}
+
+@media (max-width: 700px) {
+  .drawer {
+    top: 12px;
+    bottom: 12px;
+    width: min(350px, 82vw);
+    border: 1px solid rgba(255,255,255,.075);
+    border-radius: 18px;
+    overflow: hidden;
+    background: rgba(10,12,17,.94);
+    box-shadow: 0 18px 70px rgba(0,0,0,.48);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+  }
+
+  .drawer-left {
+    left: 8px;
+    right: auto;
+    transform: translateX(calc(-100% - 16px));
+  }
+
+  .drawer-right {
+    right: 8px;
+    left: auto;
+    transform: translateX(calc(100% + 16px));
+  }
+
+  body[data-drawer="shaping"] .drawer-left,
+  body[data-drawer="codex"] .drawer-right {
+    transform: translateX(0);
+  }
+
+  .drawer-header {
+    min-height: 0;
+    padding: 16px 16px 13px;
+    gap: 10px;
+  }
+
+  .drawer-header .eyebrow {
+    font-size: .56rem;
+    letter-spacing: .19em;
+  }
+
+  .drawer-header h2 {
+    margin-top: 4px;
+    font-size: .93rem;
+  }
+
+  .drawer-close {
+    width: 30px;
+    height: 30px;
+    font-size: 1.05rem;
+    flex: 0 0 auto;
+  }
+
+  .drawer-subhead {
+    padding: 10px 16px 0;
+  }
+
+  .drawer-scroll {
+    padding: 12px 12px max(16px, env(safe-area-inset-bottom));
+  }
+
+  /* Shape: quick-action purchase rows */
+  .drawer-left .upgrade-list {
+    gap: 8px;
+  }
+
+  .drawer-left .upgrade {
+    min-height: 0;
+    padding: 11px 12px;
+    border-radius: 12px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "name cost"
+      "desc desc";
+    column-gap: 10px;
+    row-gap: 5px;
+    align-items: center;
+  }
+
+  .drawer-left .upgrade:hover:not(:disabled),
+  .drawer-left .upgrade.locked:hover {
+    transform: none;
+  }
+
+  .drawer-left .upgrade-name {
+    grid-area: name;
+    margin: 0;
+    font-size: .78rem;
+    line-height: 1.2;
+  }
+
+  .drawer-left .upgrade-name small {
+    font-size: .62rem;
+  }
+
+  .drawer-left .upgrade-desc {
+    grid-area: desc;
+    min-height: 0;
+    font-size: .63rem;
+    line-height: 1.35;
+    padding-right: 2px;
+  }
+
+  .drawer-left .upgrade-cost {
+    grid-area: cost;
+    margin: 0;
+    font-size: .64rem;
+    white-space: nowrap;
+    text-align: right;
+    align-self: start;
+  }
+
+  /* Codex: dense scan list */
+  .drawer-right .drawer-subhead {
+    padding-bottom: 4px;
+  }
+
+  .drawer-right .discovery-count {
+    font-size: .64rem;
+  }
+
+  .drawer-right .codex-list {
+    gap: 6px;
+  }
+
+  .drawer-right .codex-entry {
+    min-height: 52px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    gap: 9px;
+  }
+
+  .drawer-right .codex-glyph {
+    width: 22px;
+    font-size: .86rem;
+  }
+
+  .drawer-right .codex-entry strong {
+    font-size: .72rem;
+    line-height: 1.15;
+  }
+
+  .drawer-right .codex-entry small {
+    margin-top: 2px;
+    font-size: .54rem;
+  }
+
+  .drawer-right .codex-meta {
+    margin-top: 3px;
+    font-size: .52rem;
+    line-height: 1.25;
+  }
+
+  .drawer-right .codex-lore {
+    display: none;
+  }
+
+  .drawer-right .codex-history {
+    color: #434a55;
+  }
+
+  .drawer-right .codex-entry:not(.discovered) {
+    min-height: 46px;
+    opacity: .78;
+  }
+
+  .drawer-backdrop {
+    background: rgba(2,3,6,.38);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+  }
+}
