@@ -942,8 +942,8 @@ function renderCodex() {
           <strong>${evo.name}</strong>
           <small>${evo.tier === 0 ? "Origin" : "Evolution " + evo.tier}</small>
           <span class="codex-meta">
-            ${lore}<br>
-            ${reached} ${reached === 1 ? "time" : "times"} reached · ${formatDiscoveryDate(meta.firstAt)}
+            <span class="codex-lore">${lore}</span>
+            <span class="codex-history">${reached} ${reached === 1 ? "time" : "times"} reached · ${formatDiscoveryDate(meta.firstAt)}</span>
           </span>
         </span>
       `;
