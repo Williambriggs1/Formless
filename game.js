@@ -157,6 +157,7 @@ const freshState = () => ({
   hintsSeen: {},
   settings: { sound: false },
   firstEvolutionEnergy: 0,
+  firstEvolutionAt: 0,
   lastSavedAt: Date.now()
 });
 
@@ -231,6 +232,7 @@ function load() {
       ...parsed,
       evolutionTier: legacyTier,
       evolutionCount: parsed.evolutionCount ?? legacyTier,
+      firstEvolutionAt: parsed.firstEvolutionAt || 0,
       heat: Number.isFinite(parsed.heat) ? parsed.heat : 0,
       lastSpendAt: parsed.lastSpendAt || parsed.lastSavedAt || Date.now(),
       traits: { ...base.traits, ...(parsed.traits || {}) },
@@ -705,7 +707,7 @@ function considerEvolution() {
 function considerFirstEvolution() {
   // Give the player enough time to establish an actual play style before
   // deciding what the Formless becomes.
-  if (state.lifetimeEnergy < 220) {
+  if (state.lifetimeEnergy < 420) {
     clearPendingEvolution(1);
     return;
   }
@@ -742,7 +744,7 @@ function considerFirstEvolution() {
 
   // Require both commitment and a meaningful lead so a nearly-balanced
   // player isn't arbitrarily pushed into whichever score happens to tick first.
-  if (scores[0][1] < 7 || lead < 1.25) {
+  if (scores[0][1] < 10 || lead < 1.75) {
     clearPendingEvolution(1);
     return;
   }
@@ -752,7 +754,11 @@ function considerFirstEvolution() {
 
 function considerSecondEvolution() {
   const gainedSinceFirst = state.lifetimeEnergy - state.firstEvolutionEnergy;
-  if (gainedSinceFirst < 950) {
+  const maturedFor = state.firstEvolutionAt
+    ? (Date.now() - state.firstEvolutionAt) / 1000
+    : 0;
+
+  if (gainedSinceFirst < 2600 || maturedFor < 150) {
     clearPendingEvolution(2);
     return;
   }
@@ -762,7 +768,7 @@ function considerSecondEvolution() {
   const lowest = ranked[2][1];
   const spread = highest - lowest;
 
-  if (highest < 12) {
+  if (highest < 24) {
     clearPendingEvolution(2);
     return;
   }
@@ -793,6 +799,7 @@ function evolve(form, tier) {
 
   if (tier === 1) {
     state.firstEvolutionEnergy = state.lifetimeEnergy;
+    state.firstEvolutionAt = Date.now();
     state.stageTraits = { force: 0, patience: 0, industry: 0 };
     state.shapingTraits = { force: 0, patience: 0, industry: 0 };
   }
@@ -980,6 +987,7 @@ function renderDebug() {
     "shaping: " + JSON.stringify(state.shapingTraits),
     "stage: " + JSON.stringify(state.stageTraits),
     "first scores: " + JSON.stringify(firstScores),
+    "matured: " + (state.firstEvolutionAt ? ((Date.now() - state.firstEvolutionAt) / 1000).toFixed(1) + "s" : "n/a"),
     "pending: " + (pendingEvolution ? pendingEvolution.form + " / tier " + pendingEvolution.tier : "none")
   ].join("\n");
 }
