@@ -1,5 +1,5 @@
-const SAVE_KEY = "formless-save-v4";
-const LEGACY_SAVE_KEYS = ["formless-save-v3", "formless-save-v2", "formless-save-v1"];
+const SAVE_KEY = "formless-save-v5";
+const LEGACY_SAVE_KEYS = ["formless-save-v4", "formless-save-v3", "formless-save-v2", "formless-save-v1"];
 
 const evolutions = {
   formless: {
@@ -248,6 +248,7 @@ const freshState = () => ({
   shapingStartedAt: 0,
   stageTraits: { force: 0, patience: 0, industry: 0 },
   upgrades: { pressure: 0, reservoir: 0, pulse: 0 },
+  firstEvolutionUpgrades: { pressure: 0, reservoir: 0, pulse: 0 },
   behaviors: behaviorDefaults(),
   behaviorRuntime: behaviorRuntimeDefaults(),
   history: historyDefaults(),
@@ -380,6 +381,10 @@ function load() {
       shapingStartedAt: parsed.shapingStartedAt || 0,
       stageTraits: { ...base.stageTraits, ...(parsed.stageTraits || {}) },
       upgrades: { ...base.upgrades, ...(parsed.upgrades || {}) },
+      firstEvolutionUpgrades: {
+        ...base.firstEvolutionUpgrades,
+        ...(parsed.firstEvolutionUpgrades || {})
+      },
       behaviors: { ...base.behaviors, ...(parsed.behaviors || {}) },
       behaviorRuntime: {
         ...base.behaviorRuntime,
@@ -410,6 +415,13 @@ function load() {
     if (legacyTier === 1 && !parsed.stageTraits) {
       merged.stageTraits = { force: 0, patience: 0, industry: 0 };
       merged.firstEvolutionEnergy = parsed.firstEvolutionEnergy || parsed.lifetimeEnergy || 0;
+    }
+
+    // Older saves do not know which Shape levels existed at Evolution I.
+    // Snapshot the current levels so an in-progress legacy run is not
+    // retroactively pushed toward a branch by old purchases.
+    if (legacyTier === 1 && !parsed.firstEvolutionUpgrades) {
+      merged.firstEvolutionUpgrades = { ...merged.upgrades };
     }
 
     if (merged.evolutionTier >= 2 && !merged.secondEvolutionAt) {
@@ -1244,6 +1256,58 @@ function considerFirstEvolution() {
   queueEvolution(scores[0][0], 1);
 }
 
+function upgradeDeltaSinceFirst(id, target = state) {
+  const before = Number(target.firstEvolutionUpgrades?.[id] || 0);
+  return Math.max(0, upgradeLevel(id, target) - before);
+}
+
+function secondEvolutionScores(target = state) {
+  const stage = target.stageTraits || { force: 0, patience: 0, industry: 0 };
+
+  const pressureDelta = upgradeDeltaSinceFirst("pressure", target);
+  const reservoirDelta = upgradeDeltaSinceFirst("reservoir", target);
+  const pulseDelta = upgradeDeltaSinceFirst("pulse", target);
+
+  // Visible post-evolution teaching is the primary signal. Raw behavior is
+  // deliberately capped so necessary clicking cannot overwhelm the player's
+  // actual Shape choices.
+  return {
+    force:
+      pressureDelta * 6 +
+      Math.min(stage.force, 12) * .35,
+    patience:
+      reservoirDelta * 6 +
+      Math.min(stage.patience, 12) * .45 +
+      reservoirCharge(target) * 1.5,
+    industry:
+      pulseDelta * 6 +
+      Math.min(stage.industry, 12) * .45 +
+      Math.min(1.5, (target.behaviors?.automationReliance || 0) / 70)
+  };
+}
+
+function normalSecondEvolutionCandidate(target = state) {
+  const scores = secondEvolutionScores(target);
+  const ranked = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+  const highest = ranked[0][1];
+  const lowest = ranked[2][1];
+  const spread = highest - lowest;
+
+  if (highest < 18) return "";
+
+  if (lowest >= 12 && spread <= 5) {
+    return "convergence";
+  }
+
+  const branches = {
+    ember: { force: "inferno", patience: "core", industry: "furnace" },
+    seed: { force: "briar", patience: "grove", industry: "cultivator" },
+    mechanism: { force: "press", patience: "clockwork", industry: "engine" }
+  };
+
+  return branches[target.form]?.[ranked[0][0]] || "";
+}
+
 function secretEvolutionCandidate() {
   const b = state.behaviors;
   const h = state.history;
@@ -1329,33 +1393,16 @@ function considerSecondEvolution() {
     return;
   }
 
-  const ranked = traitScores(state.stageTraits);
-  const highest = ranked[0][1];
-  const lowest = ranked[2][1];
-  const spread = highest - lowest;
-
-  if (highest < 24) {
+  const normal = normalSecondEvolutionCandidate();
+  if (!normal) {
     clearPendingEvolution(2);
     return;
   }
 
-  let next = secretEvolutionCandidate();
-
-  if (!next && lowest >= 10 && spread <= 5) {
-    next = "convergence";
-  } else if (!next) {
-    const primary = ranked[0][0];
-    const branches = {
-      ember: { force: "inferno", patience: "core", industry: "furnace" },
-      seed: { force: "briar", patience: "grove", industry: "cultivator" },
-      mechanism: { force: "press", patience: "clockwork", industry: "engine" }
-    };
-
-    next = branches[state.form]?.[primary];
-  }
-
-  if (next) queueEvolution(next, 2);
-  else clearPendingEvolution(2);
+  // Secrets are allowed to replace a normal branch only after the player has
+  // also established enough visible post-evolution direction to evolve at all.
+  const secret = secretEvolutionCandidate();
+  queueEvolution(secret || normal, 2);
 }
 
 function considerThirdEvolution() {
@@ -1385,6 +1432,7 @@ function evolve(form, tier) {
     state.firstForm = form;
     state.firstEvolutionEnergy = state.lifetimeEnergy;
     state.firstEvolutionAt = Date.now();
+    state.firstEvolutionUpgrades = { ...state.upgrades };
     state.stageTraits = { force: 0, patience: 0, industry: 0 };
     state.shapingTraits = { force: 0, patience: 0, industry: 0 };
   }
@@ -1583,6 +1631,13 @@ function renderDebug() {
     "traits: " + JSON.stringify(state.traits),
     "shaping: " + JSON.stringify(state.shapingTraits),
     "stage: " + JSON.stringify(state.stageTraits),
+    "tier I upgrade snapshot: " + JSON.stringify(state.firstEvolutionUpgrades),
+    "tier II scores: " + JSON.stringify(
+      Object.fromEntries(
+        Object.entries(secondEvolutionScores()).map(([key, value]) => [key, Number(value.toFixed(2))])
+      )
+    ),
+    "normal tier II: " + (normalSecondEvolutionCandidate() || "none"),
     "behaviors: " + JSON.stringify(
       Object.fromEntries(
         Object.entries(state.behaviors).map(([key, value]) => [key, Number(value.toFixed(2))])
