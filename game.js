@@ -1462,6 +1462,59 @@ function secretEvolutionCandidate() {
   return "";
 }
 
+function thirdEvolutionProgress(target = state) {
+  const b = target.behaviors || behaviorDefaults();
+  const h = target.history || historyDefaults();
+  const levels = [
+    upgradeLevel("pressure", target),
+    upgradeLevel("reservoir", target),
+    upgradeLevel("pulse", target)
+  ].sort((a, b) => b - a);
+
+  const extremeSinglePath =
+    levels[0] >= 11 &&
+    levels[1] <= 1 &&
+    levels[2] === 0;
+
+  const ritualPattern = h.repetition >= 5;
+
+  let route = "";
+  let behaviorProgress = 0;
+
+  if (extremeSinglePath) {
+    route = "monolith";
+    behaviorProgress = Math.min(
+      1,
+      Math.min(
+        (b.specialization || 0) / 14,
+        (b.abstinence || 0) / 10
+      )
+    );
+  } else if (ritualPattern) {
+    route = "ritual";
+    behaviorProgress = Math.min(1, (b.specialization || 0) / 11);
+  }
+
+  const gained = Math.max(0, target.lifetimeEnergy - target.secondEvolutionEnergy);
+  const energyProgress = Math.min(1, gained / 7500);
+  const maturedFor = target.secondEvolutionAt
+    ? (Date.now() - target.secondEvolutionAt) / 1000
+    : 0;
+  const timeProgress = Math.min(1, maturedFor / 300);
+
+  return {
+    route,
+    extremeSinglePath,
+    ritualPattern,
+    energyProgress,
+    timeProgress,
+    behaviorProgress,
+    overallProgress: route
+      ? Math.min(energyProgress, timeProgress, behaviorProgress)
+      : Math.min(energyProgress, timeProgress)
+  };
+}
+
 function thirdEvolutionCandidate() {
   const b = state.behaviors;
   const h = state.history;
@@ -1865,15 +1918,82 @@ function evolutionReadiness() {
   }
 
   if (state.evolutionTier === 2) {
-    const gained = Math.max(0, state.lifetimeEnergy - state.secondEvolutionEnergy);
-    const energyProgress = Math.min(1, gained / 7500);
-    const maturedFor = state.secondEvolutionAt
-      ? (Date.now() - state.secondEvolutionAt) / 1000
-      : 0;
-    const timeProgress = Math.min(1, maturedFor / 300);
-    const progress = Math.min(energyProgress, timeProgress);
+    const progress = thirdEvolutionProgress();
+    const {
+      route,
+      energyProgress,
+      timeProgress,
+      behaviorProgress,
+      overallProgress
+    } = progress;
 
-    if (progress < .3) {
+    if (route) {
+      if (overallProgress < .3) {
+        return {
+          level: 1,
+          status: "taking hold",
+          whisper: route === "monolith"
+            ? "One lesson is beginning to eclipse everything else."
+            : "A familiar pattern is beginning to repeat itself."
+        };
+      }
+
+      if (overallProgress < .65) {
+        return {
+          level: 2,
+          status: "hardening",
+          whisper: route === "monolith"
+            ? "The lesson is already extreme. It is still hardening into identity."
+            : "The pattern is familiar. Repetition is making it harder to escape."
+        };
+      }
+
+      if (overallProgress < 1) {
+        if (behaviorProgress < 1 && energyProgress >= 1 && timeProgress >= 1) {
+          return {
+            level: 3,
+            status: "hardening",
+            whisper: route === "monolith"
+              ? "The lesson is absolute. It only needs time to harden."
+              : "The pattern is established. It needs to deepen before it becomes final."
+          };
+        }
+
+        if (energyProgress < 1 && timeProgress >= 1 && behaviorProgress >= 1) {
+          return {
+            level: 3,
+            status: "gathering",
+            whisper: "Its identity is settled. It still needs more experience."
+          };
+        }
+
+        if (timeProgress < 1 && energyProgress >= 1 && behaviorProgress >= 1) {
+          return {
+            level: 3,
+            status: "settling",
+            whisper: "The identity is strong enough, but it has not lived long enough yet."
+          };
+        }
+
+        return {
+          level: 3,
+          status: "forming",
+          whisper: "The final identity is taking shape."
+        };
+      }
+
+      return {
+        level: 4,
+        status: "near",
+        whisper: route === "monolith"
+          ? "Nothing else is left to teach it. The lesson is becoming permanent."
+          : "The repeated lesson is about to become something of its own."
+      };
+    }
+
+    const baseProgress = Math.min(energyProgress, timeProgress);
+
+    if (baseProgress < .3) {
       return {
         level: 1,
         status: "faint",
@@ -1881,7 +2001,7 @@ function evolutionReadiness() {
       };
     }
 
-    if (progress < .65) {
+    if (baseProgress < .65) {
       return {
         level: 2,
         status: "deepening",
@@ -1889,42 +2009,18 @@ function evolutionReadiness() {
       };
     }
 
-    if (progress < 1) {
-      if (energyProgress >= 1 && timeProgress < 1) {
-        return {
-          level: 3,
-          status: "settling",
-          whisper: "There is enough power here, but not enough history yet."
-        };
-      }
-
-      if (timeProgress >= 1 && energyProgress < 1) {
-        return {
-          level: 3,
-          status: "gathering",
-          whisper: "It has become itself. Something more still needs to accumulate."
-        };
-      }
-
+    if (baseProgress < 1) {
       return {
         level: 3,
         status: "forming",
-        whisper: "Something final is beginning to gather around it."
-      };
-    }
-
-    if (!thirdEvolutionCandidate()) {
-      return {
-        level: 3,
-        status: "dormant",
-        whisper: "It could go further, but nothing about this path is extreme enough yet."
+        whisper: "Something final could still emerge if one lesson becomes unmistakable."
       };
     }
 
     return {
-      level: 4,
-      status: "near",
-      whisper: "This identity is beginning to harden into something final."
+      level: 3,
+      status: "open",
+      whisper: "It has lived long enough to go further. No single lesson owns it yet."
     };
   }
 
@@ -1995,12 +2091,24 @@ function renderDebug() {
     "shaping: " + JSON.stringify(state.shapingTraits),
     "stage: " + JSON.stringify(state.stageTraits),
     "tier I upgrade snapshot: " + JSON.stringify(state.firstEvolutionUpgrades),
-    "tier II scores: " + JSON.stringify(
-      Object.fromEntries(
-        Object.entries(secondEvolutionScores()).map(([key, value]) => [key, Number(value.toFixed(2))])
+    ...(state.evolutionTier <= 1 ? [
+      "tier II scores: " + JSON.stringify(
+        Object.fromEntries(
+          Object.entries(secondEvolutionScores()).map(([key, value]) => [key, Number(value.toFixed(2))])
+        )
+      ),
+      "normal tier II: " + (normalSecondEvolutionCandidate() || "none")
+    ] : []),
+    ...(state.evolutionTier === 2 ? [
+      "tier III progress: " + JSON.stringify(
+        Object.fromEntries(
+          Object.entries(thirdEvolutionProgress()).map(([key, value]) => [
+            key,
+            typeof value === "number" ? Number(value.toFixed(3)) : value
+          ])
+        )
       )
-    ),
-    "normal tier II: " + (normalSecondEvolutionCandidate() || "none"),
+    ] : []),
     "behaviors: " + JSON.stringify(
       Object.fromEntries(
         Object.entries(state.behaviors).map(([key, value]) => [key, Number(value.toFixed(2))])
