@@ -1445,7 +1445,8 @@ function codexOrder() {
     "convergence",
     "vault", "flashpoint", "resonance", "autarch",
     "handbound", "hollow", "afterimage", "undertow",
-    "monolith", "ritual", "wanderer", "palimpsest"
+    "wanderer", "palimpsest",
+    "monolith", "ritual"
   ];
 }
 
