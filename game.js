@@ -1439,7 +1439,15 @@ function secretEvolutionCandidate() {
   if (h.misremember >= 2.5 && b.reversal >= 7) return "palimpsest";
   if (h.exploration >= 5 && b.balance >= 6) return "wanderer";
   if (b.dormancy >= 9 && b.returning >= 2) return "afterimage";
-  if (b.hoarding >= 8 && b.deepSaving >= 5 && levels.reservoir >= 4) return "vault";
+
+  // Vault should require deliberate hands-off refusal, not ordinary saving
+  // while actively working toward a patience branch.
+  if (
+    b.hoarding >= 10 &&
+    b.deepSaving >= 6 &&
+    b.activeNeglect >= 4 &&
+    levels.reservoir >= 4
+  ) return "vault";
 
   // Flashpoint is repeated attack-pause-attack play, not ordinary sustained
   // spam clicking. Several genuine burst episodes must occur in the same run.
@@ -1451,7 +1459,16 @@ function secretEvolutionCandidate() {
 
   if (b.consistency >= 6 && b.balance >= 5) return "resonance";
   if (b.automationReliance >= 84 && b.activeNeglect >= 6 && levels.pulse >= 5) return "autarch";
-  if (b.manualReliance >= 94 && b.abstinence >= 6 && levels.pulse === 0) return "handbound";
+
+  // Handbound is a deliberate rejection of automation after meaningfully
+  // developing both manual-facing lessons, not simply "I never bought Pulse."
+  if (
+    b.manualReliance >= 96 &&
+    b.abstinence >= 8 &&
+    levels.pulse === 0 &&
+    levels.pressure >= 3 &&
+    levels.reservoir >= 3
+  ) return "handbound";
   if (
     b.minimalism >= 5 &&
     state.behaviorRuntime.purchases <= 2 &&
@@ -1476,7 +1493,10 @@ function thirdEvolutionProgress(target = state) {
     levels[1] <= 1 &&
     levels[2] === 0;
 
-  const ritualPattern = h.repetition >= 5;
+  const visibleSpecialization =
+    levels[0] >= 9 &&
+    levels[0] - levels[1] >= 5;
+  const ritualPattern = h.repetition >= 5 && visibleSpecialization;
 
   let route = "";
   let behaviorProgress = 0;
@@ -1492,7 +1512,11 @@ function thirdEvolutionProgress(target = state) {
     );
   } else if (ritualPattern) {
     route = "ritual";
-    behaviorProgress = Math.min(1, (b.specialization || 0) / 11);
+
+    // Ritual is proof of repetition across lives. The current run only needs
+    // to visibly confirm the same kind of specialization; it should not have
+    // to rebuild a hidden specialization timer after Tier II resets.
+    behaviorProgress = 1;
   }
 
   const gained = Math.max(0, target.lifetimeEnergy - target.secondEvolutionEnergy);
@@ -1536,11 +1560,13 @@ function thirdEvolutionCandidate() {
     b.abstinence >= 10
   ) return "monolith";
 
-  // Ritual is specialization repeated strongly enough across separate runs
-  // that the behavior survives release.
+  // Ritual is repetition across lives, confirmed by a visibly specialized
+  // current build. Hidden specialization does not need to be rebuilt after
+  // the Tier II reset.
   if (
     h.repetition >= 5 &&
-    b.specialization >= 11
+    levels[0] >= 9 &&
+    levels[0] - levels[1] >= 5
   ) return "ritual";
 
   return "";
@@ -1558,14 +1584,20 @@ function considerSecondEvolution() {
   }
 
   const normal = normalSecondEvolutionCandidate();
-  if (!normal) {
+  const secret = secretEvolutionCandidate();
+
+  // Most secrets sit on top of a viable normal evolution so ordinary shaping
+  // remains the backbone of Tier II. Hollow and Afterimage are exceptions:
+  // their entire identity is built around omission/absence, so requiring three
+  // conventional post-Tier-I Shape levels would contradict their recipes.
+  const independentSecret =
+    secret === "hollow" || secret === "afterimage";
+
+  if (!normal && !independentSecret) {
     clearPendingEvolution(2);
     return;
   }
 
-  // Secrets are allowed to replace a normal branch only after the player has
-  // also established enough visible post-evolution direction to evolve at all.
-  const secret = secretEvolutionCandidate();
   queueEvolution(secret || normal, 2);
 }
 
