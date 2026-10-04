@@ -293,6 +293,7 @@ const el = {
   whisper: document.querySelector("#whisper"),
   formName: document.querySelector("#formName"),
   evolutionStatus: document.querySelector("#evolutionStatus"),
+  evolutionSignal: document.querySelector("#evolutionSignal"),
   upgrades: document.querySelector("#upgrades"),
   codexList: document.querySelector("#codexList"),
   discoveryCount: document.querySelector("#discoveryCount"),
@@ -1602,12 +1603,247 @@ function renderCodex() {
   el.discoveryCount.textContent = state.discovered.length + " / " + codexOrder().length + " discovered";
 }
 
-function evolutionStatusText() {
-  if (state.evolutionTier === 0) return "Evolution: ???";
+function firstEvolutionScores(target = state) {
+  const pressure = upgradeLevel("pressure", target);
+  const reservoir = upgradeLevel("reservoir", target);
+  const pulse = upgradeLevel("pulse", target);
+  const shaping = target.shapingTraits || { force: 0, patience: 0, industry: 0 };
 
-  const numerals = { 1: "I", 2: "II", 3: "III" };
-  return "Evolution " + (numerals[state.evolutionTier] || state.evolutionTier) +
-    " · " + evolutions[state.form].name;
+  return [
+    ["ember", pressure * 4.5 + Math.min(shaping.force, 6) * .8],
+    [
+      "seed",
+      reservoir * 4.5 +
+      Math.min(shaping.patience, 6) * .9 +
+      Math.min(target.energy / 180, 2)
+    ],
+    [
+      "mechanism",
+      pulse * 4.5 +
+      Math.min(shaping.industry, 6) * .9
+    ]
+  ].sort((a, b) => b[1] - a[1]);
+}
+
+function evolutionReadiness() {
+  if (pendingEvolution) {
+    return {
+      level: 4,
+      status: "changing",
+      whisper: "Something inside it is rearranging itself."
+    };
+  }
+
+  if (state.evolutionTier === 0) {
+    if (!state.shapingStartedAt) {
+      return {
+        level: state.lifetimeEnergy >= 180 ? 1 : 0,
+        status: state.lifetimeEnergy >= 180 ? "stirring" : "faint",
+        whisper: state.lifetimeEnergy >= 180
+          ? "It is listening. Teach it something."
+          : "Something faint is beginning to answer."
+      };
+    }
+
+    const progress = Math.min(1, state.lifetimeEnergy / 420);
+    const scores = firstEvolutionScores();
+    const lead = scores[0][1] - scores[1][1];
+
+    let requiredLead = 1.75;
+    if (state.lifetimeEnergy >= 900) requiredLead = .75;
+    if (state.lifetimeEnergy >= 1500) requiredLead = 0;
+
+    if (progress < .35) {
+      return {
+        level: 1,
+        status: "stirring",
+        whisper: "Its first instincts are beginning to wake."
+      };
+    }
+
+    if (progress < .7) {
+      return {
+        level: 2,
+        status: "gathering",
+        whisper: "Your habits are beginning to leave a shape behind."
+      };
+    }
+
+    if (progress < 1) {
+      return {
+        level: 3,
+        status: "forming",
+        whisper: "A first shape is gathering beneath the surface."
+      };
+    }
+
+    if (scores[0][1] < 10) {
+      return {
+        level: 3,
+        status: "waiting",
+        whisper: "It has gathered enough, but your lesson is still too faint."
+      };
+    }
+
+    if (lead < requiredLead) {
+      return {
+        level: 3,
+        status: "divided",
+        whisper: "It is pulled between competing instincts."
+      };
+    }
+
+    return {
+      level: 4,
+      status: "near",
+      whisper: "The first shape is almost impossible to hide."
+    };
+  }
+
+  if (state.evolutionTier === 1) {
+    const gained = Math.max(0, state.lifetimeEnergy - state.firstEvolutionEnergy);
+    const energyProgress = Math.min(1, gained / 3200);
+    const maturedFor = state.firstEvolutionAt
+      ? (Date.now() - state.firstEvolutionAt) / 1000
+      : 0;
+    const timeProgress = Math.min(1, maturedFor / 240);
+    const progress = Math.min(energyProgress, timeProgress);
+
+    if (progress < .3) {
+      return {
+        level: 1,
+        status: "faint",
+        whisper: "This form is still young. What you do now will matter later."
+      };
+    }
+
+    if (progress < .65) {
+      return {
+        level: 2,
+        status: "stirring",
+        whisper: "It is learning which parts of this form should survive."
+      };
+    }
+
+    if (progress < 1) {
+      if (energyProgress >= 1 && timeProgress < 1) {
+        return {
+          level: 3,
+          status: "settling",
+          whisper: "It has strength, but this form has not lived long enough."
+        };
+      }
+
+      if (timeProgress >= 1 && energyProgress < 1) {
+        return {
+          level: 3,
+          status: "gathering",
+          whisper: "The form has settled. It still needs more experience."
+        };
+      }
+
+      return {
+        level: 3,
+        status: "forming",
+        whisper: "Another change is beginning to gather."
+      };
+    }
+
+    if (!normalSecondEvolutionCandidate()) {
+      return {
+        level: 3,
+        status: "unresolved",
+        whisper: "It is ready to change, but your lesson is still divided."
+      };
+    }
+
+    return {
+      level: 4,
+      status: "near",
+      whisper: "Something beyond this form is pressing closer."
+    };
+  }
+
+  if (state.evolutionTier === 2) {
+    const gained = Math.max(0, state.lifetimeEnergy - state.secondEvolutionEnergy);
+    const energyProgress = Math.min(1, gained / 7500);
+    const maturedFor = state.secondEvolutionAt
+      ? (Date.now() - state.secondEvolutionAt) / 1000
+      : 0;
+    const timeProgress = Math.min(1, maturedFor / 300);
+    const progress = Math.min(energyProgress, timeProgress);
+
+    if (progress < .3) {
+      return {
+        level: 1,
+        status: "faint",
+        whisper: "This form may still have somewhere further to go."
+      };
+    }
+
+    if (progress < .65) {
+      return {
+        level: 2,
+        status: "deepening",
+        whisper: "Its identity is becoming harder to undo."
+      };
+    }
+
+    if (progress < 1) {
+      if (energyProgress >= 1 && timeProgress < 1) {
+        return {
+          level: 3,
+          status: "settling",
+          whisper: "There is enough power here, but not enough history yet."
+        };
+      }
+
+      if (timeProgress >= 1 && energyProgress < 1) {
+        return {
+          level: 3,
+          status: "gathering",
+          whisper: "It has become itself. Something more still needs to accumulate."
+        };
+      }
+
+      return {
+        level: 3,
+        status: "forming",
+        whisper: "Something final is beginning to gather around it."
+      };
+    }
+
+    if (!thirdEvolutionCandidate()) {
+      return {
+        level: 3,
+        status: "dormant",
+        whisper: "It could go further, but nothing about this path is extreme enough yet."
+      };
+    }
+
+    return {
+      level: 4,
+      status: "near",
+      whisper: "This identity is beginning to harden into something final."
+    };
+  }
+
+  return {
+    level: 4,
+    status: "complete",
+    whisper: evolutions[state.form]?.whisper || "It has become something difficult to change."
+  };
+}
+
+function evolutionStatusText(readiness = evolutionReadiness()) {
+  const nextTier = Math.min(3, state.evolutionTier + 1);
+  const labels = { 1: "First evolution", 2: "Second evolution", 3: "Third evolution" };
+
+  if (state.evolutionTier >= 3) {
+    return "Evolution III · " + evolutions[state.form].name;
+  }
+
+  return labels[nextTier] + " · " + readiness.status;
 }
 
 function mechanicStatusText() {
@@ -1710,9 +1946,16 @@ function render() {
 
   el.mechanicText.textContent = mechanicStatusText();
 
+  const readiness = evolutionReadiness();
+
   el.formName.textContent = evo.name;
-  el.whisper.textContent = Date.now() < transientWhisperUntil ? transientWhisper : evo.whisper;
-  el.evolutionStatus.textContent = evolutionStatusText();
+  el.whisper.textContent =
+    Date.now() < transientWhisperUntil ? transientWhisper : readiness.whisper;
+  el.evolutionStatus.textContent = evolutionStatusText(readiness);
+
+  if (el.evolutionSignal) {
+    el.evolutionSignal.dataset.level = String(readiness.level);
+  }
 
   updateSoundButton();
   renderUpgrades();
