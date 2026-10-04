@@ -2122,3 +2122,22 @@ body[data-form="palimpsest"] .entity-shell {
     5px -3px 0 rgba(121,158,163,.07),
     -5px 4px 0 rgba(166,153,214,.07);
 }
+
+
+/* Evolution III Codex treatment */
+.codex-entry.tier-3 {
+  border-color: rgba(202,194,239,.15);
+  box-shadow:
+    inset 0 0 0 1px rgba(147,132,205,.035),
+    0 8px 24px rgba(0,0,0,.08);
+}
+
+.codex-entry.tier-3.discovered {
+  background:
+    linear-gradient(145deg, rgba(172,157,225,.055), rgba(93,135,142,.025));
+}
+
+.codex-entry.tier-3 .codex-glyph {
+  color: #c7bfe9;
+  text-shadow: 0 0 12px rgba(181,167,228,.18);
+}
